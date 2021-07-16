@@ -14,7 +14,7 @@ class BasicVoxelization(nn.Module):
         })
         self.voxel_layer = Voxelization(**cfg)
         self.voxel_size = cfg.voxel_size
-        self.grid_size = self.voxel_layer.grid_size
+        self.grid_size = self.voxel_layer.grid_size.cpu().detach().numpy()
         self.pcd_shape = self.voxel_layer.pcd_shape
 
     def forward(self, batch_dict):

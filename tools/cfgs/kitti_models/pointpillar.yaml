@@ -13,18 +13,19 @@ DATA_CONFIG:
             'test': False
           }
 
-        - NAME: transform_points_to_voxels
-          VOXEL_SIZE: [0.16, 0.16, 4]
-          MAX_POINTS_PER_VOXEL: 32
-          MAX_NUMBER_OF_VOXELS: {
-            'train': 16000,
-            'test': 40000
-          }
+#        - NAME: transform_points_to_voxels
+#          VOXEL_SIZE: [0.16, 0.16, 4]
+#          MAX_POINTS_PER_VOXEL: 32
+#          MAX_NUMBER_OF_VOXELS: {
+#            'train': 16000,
+#            'test': 40000
+#          }
     DATA_AUGMENTOR:
         DISABLE_AUG_LIST: ['placeholder']
         AUG_CONFIG_LIST:
             - NAME: gt_sampling
-              USE_ROAD_PLANE: True
+#              USE_ROAD_PLANE: True
+              USE_ROAD_PLANE: False
               DB_INFO_PATH:
                   - kitti_dbinfos_train.pkl
               PREPARE: {
@@ -49,6 +50,12 @@ DATA_CONFIG:
 
 MODEL:
     NAME: PointPillar
+
+    VOXELIZATION:
+      NAME: BasicVoxelization
+      max_num_points: 32
+      voxel_size: [0.16, 0.16, 4.0]
+      max_voxels: [16000, 40000]
 
     VFE:
         NAME: PillarVFE

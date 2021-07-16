@@ -58,10 +58,10 @@ DATA_PROCESSOR:
         'test': True
       }
 
-    - NAME: transform_points_to_voxels
-      VOXEL_SIZE: [0.1, 0.1, 0.15]
-      MAX_POINTS_PER_VOXEL: 5
-      MAX_NUMBER_OF_VOXELS: {
-        'train': 80000,
-        'test': 90000
-      }
+#    - NAME: transform_points_to_voxels
+#      VOXEL_SIZE: [0.1, 0.1, 0.15]
+#      MAX_POINTS_PER_VOXEL: 5
+#      MAX_NUMBER_OF_VOXELS: {
+#        'train': 80000,
+#        'test': 90000
+#      }
