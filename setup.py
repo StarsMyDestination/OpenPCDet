@@ -2,7 +2,8 @@ import os
 import subprocess
 
 from setuptools import find_packages, setup
-from torch.utils.cpp_extension import BuildExtension, CUDAExtension
+import torch
+from torch.utils.cpp_extension import BuildExtension, CppExtension, CUDAExtension
 
 
 def get_git_commit_number():
@@ -14,12 +15,43 @@ def get_git_commit_number():
     return git_commit_number
 
 
-def make_cuda_ext(name, module, sources):
-    cuda_ext = CUDAExtension(
-        name='%s.%s' % (module, name),
-        sources=[os.path.join(*module.split('.'), src) for src in sources]
-    )
-    return cuda_ext
+# def make_cuda_ext(name, module, sources):
+#     cuda_ext = CUDAExtension(
+#         name='%s.%s' % (module, name),
+#         sources=[os.path.join(*module.split('.'), src) for src in sources]
+#     )
+#     return cuda_ext
+
+
+def make_cuda_ext(name,
+                  module,
+                  sources,
+                  sources_cuda=[],
+                  extra_args=[],
+                  extra_include_path=[]):
+    define_macros = []
+    extra_compile_args = {'cxx': [] + extra_args}
+
+    if torch.cuda.is_available() or os.getenv('FORCE_CUDA', '0') == '1':
+        define_macros += [('WITH_CUDA', None)]
+        extension = CUDAExtension
+        extra_compile_args['nvcc'] = extra_args + [
+            '-D__CUDA_NO_HALF_OPERATORS__',
+            '-D__CUDA_NO_HALF_CONVERSIONS__',
+            '-D__CUDA_NO_HALF2_OPERATORS__',
+        ]
+        sources += sources_cuda
+    else:
+        print('Compiling {} without CUDA'.format(name))
+        extension = CppExtension
+        # raise EnvironmentError('CUDA is required to compile MMDetection!')
+
+    return extension(
+        name='{}.{}'.format(module, name),
+        sources=[os.path.join(*module.split('.'), p) for p in sources],
+        include_dirs=extra_include_path,
+        define_macros=define_macros,
+        extra_compile_args=extra_compile_args)
 
 
 def write_version_to_file(version, target_file):
@@ -38,7 +70,7 @@ if __name__ == '__main__':
         install_requires=[
             'numpy',
             'torch>=1.1',
-            'spconv',
+            # 'spconv',
             'numba',
             'tensorboardX',
             'easydict',
@@ -50,6 +82,38 @@ if __name__ == '__main__':
         packages=find_packages(exclude=['tools', 'data', 'output']),
         cmdclass={'build_ext': BuildExtension},
         ext_modules=[
+            make_cuda_ext(
+                name='sparse_conv_ext',
+                module='pcdet.ops.spconv',
+                extra_include_path=[
+                    # PyTorch 1.5 uses ninjia, which requires absolute path
+                    # of included files, relative path will cause failure.
+                    os.path.abspath(
+                        os.path.join(*'pcdet.ops.spconv'.split('.'),
+                                     'include/'))
+                ],
+                sources=[
+                    'src/all.cc',
+                    'src/reordering.cc',
+                    'src/reordering_cuda.cu',
+                    'src/indice.cc',
+                    'src/indice_cuda.cu',
+                    'src/maxpool.cc',
+                    'src/maxpool_cuda.cu',
+                ],
+                extra_args=['-w', '-std=c++14']),
+
+            make_cuda_ext(
+                name='voxel_layer',
+                module='pcdet.ops.voxel',
+                sources=[
+                    'src/voxelization.cpp',
+                    'src/scatter_points_cpu.cpp',
+                    'src/scatter_points_cuda.cu',
+                    'src/voxelization_cpu.cpp',
+                    'src/voxelization_cuda.cu',
+                ]),
+
             make_cuda_ext(
                 name='iou3d_nms_cuda',
                 module='pcdet.ops.iou3d_nms',
@@ -86,8 +150,8 @@ if __name__ == '__main__':
                     'src/group_points.cpp',
                     'src/group_points_gpu.cu',
                     'src/sampling.cpp',
-                    'src/sampling_gpu.cu', 
-                    'src/interpolate.cpp', 
+                    'src/sampling_gpu.cu',
+                    'src/interpolate.cpp',
                     'src/interpolate_gpu.cu',
                 ],
             ),

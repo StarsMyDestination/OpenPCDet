@@ -8,6 +8,12 @@ DATA_CONFIG:
 MODEL:
     NAME: SECONDNet
 
+    VOXELIZATION:
+        NAME: BasicVoxelization
+        max_num_points: 5
+        voxel_size: [0.1, 0.1, 0.2]
+        max_voxels: [60000, 60000]
+
     VFE:
         NAME: MeanVFE
 

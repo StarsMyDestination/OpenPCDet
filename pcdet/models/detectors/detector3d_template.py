@@ -6,7 +6,7 @@ import torch.nn as nn
 from ...ops.iou3d_nms import iou3d_nms_utils
 from .. import backbones_2d, backbones_3d, dense_heads, roi_heads
 from ..backbones_2d import map_to_bev
-from ..backbones_3d import pfe, vfe
+from ..backbones_3d import pfe, vfe, voxelization
 from ..model_utils import model_nms_utils
 
 
@@ -20,8 +20,8 @@ class Detector3DTemplate(nn.Module):
         self.register_buffer('global_step', torch.LongTensor(1).zero_())
 
         self.module_topology = [
-            'vfe', 'backbone_3d', 'map_to_bev_module', 'pfe',
-            'backbone_2d', 'dense_head',  'point_head', 'roi_head'
+            'voxelization', 'vfe', 'backbone_3d', 'map_to_bev_module', 'pfe',
+            'backbone_2d', 'dense_head', 'point_head', 'roi_head'
         ]
 
     @property
@@ -36,9 +36,9 @@ class Detector3DTemplate(nn.Module):
             'module_list': [],
             'num_rawpoint_features': self.dataset.point_feature_encoder.num_point_features,
             'num_point_features': self.dataset.point_feature_encoder.num_point_features,
-            'grid_size': self.dataset.grid_size,
+            # 'grid_size': self.dataset.grid_size,
             'point_cloud_range': self.dataset.point_cloud_range,
-            'voxel_size': self.dataset.voxel_size
+            # 'voxel_size': self.dataset.voxel_size
         }
         for module_name in self.module_topology:
             module, model_info_dict = getattr(self, 'build_%s' % module_name)(
@@ -46,6 +46,19 @@ class Detector3DTemplate(nn.Module):
             )
             self.add_module(module_name, module)
         return model_info_dict['module_list']
+
+    def build_voxelization(self, model_info_dict):
+        if self.model_cfg.get('VOXELIZATION', None) is None:
+            return None, model_info_dict
+
+        voxel_module = voxelization.__all__[self.model_cfg.VOXELIZATION.NAME](
+            cfg=self.model_cfg.VOXELIZATION,
+            point_cloud_range=model_info_dict['point_cloud_range'],
+        )
+        model_info_dict['voxel_size'] = voxel_module.voxel_size
+        model_info_dict['grid_size'] = voxel_module.grid_size
+        model_info_dict['module_list'].append(voxel_module)
+        return voxel_module, model_info_dict
 
     def build_vfe(self, model_info_dict):
         if self.model_cfg.get('VFE', None) is None:

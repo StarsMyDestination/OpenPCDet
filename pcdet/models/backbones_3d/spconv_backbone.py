@@ -1,6 +1,7 @@
 from functools import partial
 
-import spconv
+from ...ops import spconv
+import torch
 import torch.nn as nn
 
 
@@ -168,7 +169,8 @@ class VoxelResBackBone8x(nn.Module):
         super().__init__()
         self.model_cfg = model_cfg
         norm_fn = partial(nn.BatchNorm1d, eps=1e-3, momentum=0.01)
-
+        if isinstance(grid_size, torch.Tensor):
+            grid_size = grid_size.cpu().numpy()
         self.sparse_shape = grid_size[::-1] + [1, 0, 0]
 
         self.conv_input = spconv.SparseSequential(
