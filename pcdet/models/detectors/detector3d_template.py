@@ -21,7 +21,7 @@ class Detector3DTemplate(nn.Module):
 
         self.module_topology = [
             'voxelization', 'vfe', 'backbone_3d', 'map_to_bev_module', 'pfe',
-            'backbone_2d', 'dense_head', 'point_head', 'roi_head'
+            'backbone_2d', 'backbone_2d_rangeview', 'dense_head', 'point_head', 'roi_head'
         ]
 
     @property
@@ -36,6 +36,7 @@ class Detector3DTemplate(nn.Module):
             'module_list': [],
             'num_rawpoint_features': self.dataset.point_feature_encoder.num_point_features,
             'num_point_features': self.dataset.point_feature_encoder.num_point_features,
+            'num_rangeview_features': self.dataset.num_rangeview_features,
             # 'grid_size': self.dataset.grid_size,
             'point_cloud_range': self.dataset.point_cloud_range,
             # 'voxel_size': self.dataset.voxel_size
@@ -110,7 +111,19 @@ class Detector3DTemplate(nn.Module):
             input_channels=model_info_dict['num_bev_features']
         )
         model_info_dict['module_list'].append(backbone_2d_module)
-        model_info_dict['num_bev_features'] = backbone_2d_module.num_bev_features
+        model_info_dict['num_2d_features'] = backbone_2d_module.num_bev_features
+        return backbone_2d_module, model_info_dict
+
+    def build_backbone_2d_rangeview(self, model_info_dict):
+        if self.model_cfg.get('BACKBONE_2D_RANGEVIEW', None) is None:
+            return None, model_info_dict
+
+        backbone_2d_module = backbones_2d.__all__[self.model_cfg.BACKBONE_2D_RANGEVIEW.NAME](
+            model_cfg=self.model_cfg.BACKBONE_2D_RANGEVIEW,
+            input_channels=model_info_dict['num_rangeview_features']
+        )
+        model_info_dict['module_list'].append(backbone_2d_module)
+        model_info_dict['num_2d_features'] = backbone_2d_module.num_rangeview_features
         return backbone_2d_module, model_info_dict
 
     def build_pfe(self, model_info_dict):
@@ -134,7 +147,7 @@ class Detector3DTemplate(nn.Module):
             return None, model_info_dict
         dense_head_module = dense_heads.__all__[self.model_cfg.DENSE_HEAD.NAME](
             model_cfg=self.model_cfg.DENSE_HEAD,
-            input_channels=model_info_dict['num_bev_features'],
+            input_channels=model_info_dict['num_2d_features'],
             num_class=self.num_class if not self.model_cfg.DENSE_HEAD.CLASS_AGNOSTIC else 1,
             class_names=self.class_names,
             grid_size=model_info_dict['grid_size'],
