@@ -12,7 +12,7 @@ from ..dataset import DatasetTemplate
 
 class NuScenesDataset(DatasetTemplate):
     def __init__(self, dataset_cfg, class_names, training=True, root_path=None, logger=None):
-        root_path = (root_path if root_path is not None else Path(dataset_cfg.DATA_PATH)) / dataset_cfg.VERSION
+        root_path = root_path if root_path is not None else Path(dataset_cfg.DATA_PATH)
         super().__init__(
             dataset_cfg=dataset_cfg, class_names=class_names, training=training, root_path=root_path, logger=logger
         )
@@ -164,6 +164,7 @@ class NuScenesDataset(DatasetTemplate):
             output_path:
         Returns:
         """
+
         def get_template_prediction(num_samples):
             ret_dict = {
                 'name': np.zeros(num_samples), 'score': np.zeros(num_samples),
@@ -300,8 +301,8 @@ def create_nuscenes_info(version, data_path, save_path, max_sweeps=10):
     from nuscenes.nuscenes import NuScenes
     from nuscenes.utils import splits
     from . import nuscenes_utils
-    data_path = data_path / version
-    save_path = save_path / version
+    # data_path = data_path / version
+    # save_path = save_path / version
 
     assert version in ['v1.0-trainval', 'v1.0-test', 'v1.0-mini']
     if version == 'v1.0-trainval':
@@ -337,9 +338,10 @@ def create_nuscenes_info(version, data_path, save_path, max_sweeps=10):
             pickle.dump(train_nusc_infos, f)
     else:
         print('train sample: %d, val sample: %d' % (len(train_nusc_infos), len(val_nusc_infos)))
-        with open(save_path / f'nuscenes_infos_{max_sweeps}sweeps_train.pkl', 'wb') as f:
+        tag = '_mini' if version == 'v1.0-mini' else ''
+        with open(save_path / f'nuscenes_infos_{max_sweeps}sweeps_train{tag}.pkl', 'wb') as f:
             pickle.dump(train_nusc_infos, f)
-        with open(save_path / f'nuscenes_infos_{max_sweeps}sweeps_val.pkl', 'wb') as f:
+        with open(save_path / f'nuscenes_infos_{max_sweeps}sweeps_val{tag}.pkl', 'wb') as f:
             pickle.dump(val_nusc_infos, f)
 
 

@@ -11,6 +11,7 @@ class DataProcessor(object):
         self.training = training
         self.mode = 'train' if training else 'test'
         self.grid_size = self.voxel_size = None
+        self.num_rangeview_features = None
         self.data_processor_queue = []
         for cur_cfg in processor_configs:
             cur_processor = getattr(self, cur_cfg.NAME)(config=cur_cfg)
@@ -40,6 +41,7 @@ class DataProcessor(object):
 
         return data_dict
 
+    # TODO deprecated(no outer spconv installed)
     def transform_points_to_voxels(self, data_dict=None, config=None, voxel_generator=None):
         if data_dict is None:
             try:
@@ -94,7 +96,7 @@ class DataProcessor(object):
                 near_idxs_choice = np.random.choice(near_idxs, num_points - len(far_idxs_choice), replace=False)
                 choice = np.concatenate((near_idxs_choice, far_idxs_choice), axis=0) \
                     if len(far_idxs_choice) > 0 else near_idxs_choice
-            else: 
+            else:
                 choice = np.arange(0, len(points), dtype=np.int32)
                 choice = np.random.choice(choice, num_points, replace=False)
             np.random.shuffle(choice)

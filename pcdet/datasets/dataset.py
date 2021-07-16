@@ -39,6 +39,8 @@ class DatasetTemplate(torch_data.Dataset):
         self.total_epochs = 0
         self._merge_all_iters_to_one_epoch = False
 
+        self.num_rangeview_features = self.data_processor.num_rangeview_features
+
     @property
     def mode(self):
         return 'train' if self.training else 'test'

@@ -25,7 +25,7 @@ def parse_config():
     parser.add_argument('--batch_size', type=int, default=None, required=False, help='batch size for training')
     parser.add_argument('--epochs', type=int, default=None, required=False, help='number of epochs to train for')
     parser.add_argument('--workers', type=int, default=8, help='number of workers for dataloader')
-    parser.add_argument('--extra_tag', type=str, default='default', help='extra tag for this experiment')
+    parser.add_argument('--extra_tag', type=str, default='debug', help='extra tag for this experiment')
     parser.add_argument('--ckpt', type=str, default=None, help='checkpoint to start from')
     parser.add_argument('--pretrained_model', type=str, default=None, help='pretrained_model')
     parser.add_argument('--launcher', choices=['none', 'pytorch', 'slurm'], default='none')
@@ -44,6 +44,19 @@ def parse_config():
     parser.add_argument('--save_to_file', action='store_true', default=False, help='')
 
     args = parser.parse_args()
+
+    ## TODO DEBUG
+    if args.extra_tag == 'debug':
+        ## KITTI
+        # args.cfg_file = 'cfgs/kitti_models/second.yaml'
+
+        ## nuScenes
+        args.cfg_file = 'cfgs/nuscenes_models/cbgs_second_multihead.yaml'
+
+        args.batch_size = 2
+        args.workers = 0
+        args.epoches = 1
+    ## END
 
     cfg_from_yaml_file(args.cfg_file, cfg)
     cfg.TAG = Path(args.cfg_file).stem
