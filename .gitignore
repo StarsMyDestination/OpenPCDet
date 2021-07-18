@@ -13,3 +13,6 @@ venv/
 *.pkl
 *.zip
 *.bin
+output/
+third_party/
+version.py
