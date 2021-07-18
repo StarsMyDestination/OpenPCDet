@@ -51,11 +51,12 @@ def parse_config():
         # args.cfg_file = 'cfgs/kitti_models/second.yaml'
         # args.cfg_file = 'cfgs/kitti_models/PartA2.yaml'
         # args.cfg_file = 'cfgs/kitti_models/pointpillar.yaml'
-        args.cfg_file = 'cfgs/kitti_models/pv_rcnn.yaml' # not tested(OOM)
+        # args.cfg_file = 'cfgs/kitti_models/pv_rcnn.yaml' # not tested(OOM)
 
         ## nuScenes
         # args.cfg_file = 'cfgs/nuscenes_models/cbgs_second_multihead.yaml'
         # args.cfg_file = 'cfgs/nuscenes_models/cbgs_pp_multihead.yaml'
+        args.cfg_file = 'cfgs/nuscenes_models/centernet_rv.yaml'
 
         ## waymo # TODO under_test (no data)
         # args.cfg_file = 'cfgs/waymo_models/second.yaml'

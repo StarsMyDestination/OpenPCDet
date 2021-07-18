@@ -32,7 +32,7 @@ class RVCenterNetHead(nn.Module):
     def __init__(self, model_cfg, input_channels, num_class, **kwargs):
         super().__init__()
         self.num_classes = num_class
-        feat_channel = model_cfg.feat_channel  # TODO
+        feat_channel = model_cfg.FEAT_CHANNEL
         self.heatmap_head = self._build_head(input_channels, feat_channel,
                                              num_class)
         self.lwh_head = self._build_head(input_channels, feat_channel, 3)

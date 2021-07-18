@@ -4,8 +4,8 @@ import torch
 import torch.nn as nn
 
 from ...ops.iou3d_nms import iou3d_nms_utils
-from .. import backbones_2d, backbones_3d, dense_heads, roi_heads
-from ..backbones_2d import map_to_bev
+from .. import backbones_2d, backbones_3d, dense_heads, roi_heads, necks
+from ..backbones_2d import map_to_bev, map_to_rv
 from ..backbones_3d import pfe, vfe, voxelization
 from ..model_utils import model_nms_utils
 
@@ -20,8 +20,9 @@ class Detector3DTemplate(nn.Module):
         self.register_buffer('global_step', torch.LongTensor(1).zero_())
 
         self.module_topology = [
-            'voxelization', 'vfe', 'backbone_3d', 'map_to_bev_module', 'pfe',
-            'backbone_2d', 'backbone_2d_rangeview', 'dense_head', 'point_head', 'roi_head'
+            'voxelization', 'vfe', 'map_to_rv', 'backbone_2d_rangeview',
+            'backbone_3d', 'map_to_bev_module', 'pfe',
+            'backbone_2d', 'neck', 'dense_head', 'point_head', 'roi_head'
         ]
 
     @property
@@ -102,6 +103,18 @@ class Detector3DTemplate(nn.Module):
         model_info_dict['num_bev_features'] = map_to_bev_module.num_bev_features
         return map_to_bev_module, model_info_dict
 
+    def build_map_to_rv(self, model_info_dict):
+        if self.model_cfg.get('MAP_TO_RV', None) is None:
+            return None, model_info_dict
+
+        map_to_rv_module = map_to_rv.__all__[self.model_cfg.MAP_TO_RV.NAME](
+            cfg=self.model_cfg.MAP_TO_RV,
+            input_channels=model_info_dict['num_point_features'],
+        )
+        model_info_dict['module_list'].append(map_to_rv_module)
+        model_info_dict['num_rv_features'] = map_to_rv_module.num_rv_features
+        return map_to_rv_module, model_info_dict
+
     def build_backbone_2d(self, model_info_dict):
         if self.model_cfg.get('BACKBONE_2D', None) is None:
             return None, model_info_dict
@@ -120,11 +133,23 @@ class Detector3DTemplate(nn.Module):
 
         backbone_2d_module = backbones_2d.__all__[self.model_cfg.BACKBONE_2D_RANGEVIEW.NAME](
             model_cfg=self.model_cfg.BACKBONE_2D_RANGEVIEW,
-            input_channels=model_info_dict['num_rangeview_features']
+            input_channels=model_info_dict['num_rv_features']
         )
         model_info_dict['module_list'].append(backbone_2d_module)
-        model_info_dict['num_2d_features'] = backbone_2d_module.num_rangeview_features
+        model_info_dict['num_2d_features'] = backbone_2d_module.num_2d_features
         return backbone_2d_module, model_info_dict
+
+    def build_neck(self, model_info_dict):
+        if self.model_cfg.get('NECK', None) is None:
+            return None, model_info_dict
+
+        backbone_neck_module = necks.__all__[self.model_cfg.NECK.NAME](
+            model_cfg=self.model_cfg.NECK,
+            input_channels=model_info_dict['num_2d_features']
+        )
+        model_info_dict['module_list'].append(backbone_neck_module)
+        model_info_dict['num_2d_features'] = backbone_neck_module.num_2d_features
+        return backbone_neck_module, model_info_dict
 
     def build_pfe(self, model_info_dict):
         if self.model_cfg.get('PFE', None) is None:
@@ -150,8 +175,8 @@ class Detector3DTemplate(nn.Module):
             input_channels=model_info_dict['num_2d_features'],
             num_class=self.num_class if not self.model_cfg.DENSE_HEAD.CLASS_AGNOSTIC else 1,
             class_names=self.class_names,
-            grid_size=model_info_dict['grid_size'],
-            point_cloud_range=model_info_dict['point_cloud_range'],
+            grid_size=model_info_dict.get('grid_size', None),
+            point_cloud_range=model_info_dict.get('point_cloud_range', None),
             predict_boxes_when_training=self.model_cfg.get('ROI_HEAD', False)
         )
         model_info_dict['module_list'].append(dense_head_module)

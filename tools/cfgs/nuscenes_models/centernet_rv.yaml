@@ -1,0 +1,123 @@
+CLASS_NAMES: ['car','truck', 'construction_vehicle', 'bus', 'trailer',
+              'barrier', 'motorcycle', 'bicycle', 'pedestrian', 'traffic_cone']
+
+DATA_CONFIG:
+    _BASE_CONFIG_: cfgs/dataset_configs/nuscenes_dataset.yaml
+
+    POINT_CLOUD_RANGE: [-51.2, -51.2, -5.0, 51.2, 51.2, 3.0]
+    DATA_PROCESSOR:
+        -   NAME: mask_points_and_boxes_outside_range
+            REMOVE_OUTSIDE_BOXES: True
+
+        -   NAME: shuffle_points
+            SHUFFLE_ENABLED: {
+                'train': True,
+                'test': True
+            }
+
+    POINT_FEATURE_ENCODING: {
+        encoding_type: absolute_coordinates_encoding,
+        used_feature_list: ['x', 'y', 'z', 'intensity', 'ringID', 'timestamp'],
+        src_feature_list: ['x', 'y', 'z', 'intensity', 'ringID', 'timestamp'],
+    }
+
+
+
+MODEL:
+    NAME: RVCenterNet
+
+    MAP_TO_RV:
+        NAME: BasicRangeProjection
+        USE_RINGID: True
+        RINGID_IDX: -2 #[... ringID timestamps]
+
+        USE_XYZ: True
+
+        H_FOV: [-180, 180] # deg. clockwise, forward is 0 degree
+        H_RES: 0.02 # deg, horizontal resolution
+        V_FOV: [-10, 30] # deg. clockwise, horizon is 0 degree # 向上10度，向下30度
+        V_RES: 1.25 # deg. vertical resolution
+
+        H_UPSAMPLE_RATIO: 4 # 32->128
+
+
+    BACKBONE_2D_RANGEVIEW:
+        NAME: ResNet
+        DEPTH: 18
+
+    NECK:
+        NAME: CTResNetNeck
+        NUM_DECONV_FILTERS: [256, 128, 64]
+        NUM_DECONV_KERNELS: [4, 4, 4]
+        USE_DCN: True
+
+    DENSE_HEAD:
+        NAME: RVCenterNetHead
+        CLASS_AGNOSTIC: False
+
+        FEAT_CHANNEL: 64
+
+        SEPARATE_REG_CONFIG: 
+            NUM_MIDDLE_CONV: 1
+            NUM_MIDDLE_FILTER: 64
+            REG_LIST: ['reg:2', 'height:1', 'size:3', 'angle:2', 'velo:2']
+
+        TARGET_ASSIGNER_CONFIG:
+            NAME: AxisAlignedTargetAssigner
+            POS_FRACTION: -1.0
+            SAMPLE_SIZE: 512
+            NORM_BY_NUM_EXAMPLES: False
+            MATCH_HEIGHT: False
+            BOX_CODER: ResidualCoder
+            BOX_CODER_CONFIG: {
+                'code_size': 9,
+                'encode_angle_by_sincos': True
+            }
+
+
+        LOSS_CONFIG:
+            REG_LOSS_TYPE: WeightedL1Loss
+            LOSS_WEIGHTS: {
+                'pos_cls_weight': 1.0,
+                'neg_cls_weight': 2.0,
+                'cls_weight': 1.0,
+                'loc_weight': 0.25,
+                'dir_weight': 0.2,
+                'code_weights': [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.2, 0.2]
+            }
+
+    POST_PROCESSING:
+        RECALL_THRESH_LIST: [0.3, 0.5, 0.7]
+        SCORE_THRESH: 0.1
+        OUTPUT_RAW_SCORE: False
+
+        EVAL_METRIC: kitti
+
+        NMS_CONFIG:
+            MULTI_CLASSES_NMS: True
+            NMS_TYPE: nms_gpu
+            NMS_THRESH: 0.2
+            NMS_PRE_MAXSIZE: 1000
+            NMS_POST_MAXSIZE: 83
+
+
+OPTIMIZATION:
+    BATCH_SIZE_PER_GPU: 4
+    NUM_EPOCHS: 20
+
+    OPTIMIZER: adam_onecycle
+    LR: 0.001
+    WEIGHT_DECAY: 0.01
+    MOMENTUM: 0.9
+
+    MOMS: [0.95, 0.85]
+    PCT_START: 0.4
+    DIV_FACTOR: 10
+    DECAY_STEP_LIST: [35, 45]
+    LR_DECAY: 0.1
+    LR_CLIP: 0.0000001
+
+    LR_WARMUP: False
+    WARMUP_EPOCH: 1
+
+    GRAD_NORM_CLIP: 10
