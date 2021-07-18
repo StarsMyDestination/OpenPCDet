@@ -1,9 +1,11 @@
 import os
+import sys
 import subprocess
 
 from setuptools import find_packages, setup
 import torch
 from torch.utils.cpp_extension import BuildExtension, CppExtension, CUDAExtension
+from setuptools.command.install import install
 
 
 def get_git_commit_number():
@@ -59,6 +61,15 @@ def write_version_to_file(version, target_file):
         print('__version__ = "%s"' % version, file=f)
 
 
+class PostInstallation(install):
+    """Post-installation for installation mode."""
+    def run(self):
+        install.run(self)
+        # Note: buggy for kornia==0.5.3 and it will be fixed in the next version.
+        # Set kornia to 0.5.2 temporarily
+        subprocess.call([sys.executable, '-m', 'pip', 'install', 'kornia==0.5.2', '--no-dependencies'])
+
+
 if __name__ == '__main__':
     version = '0.3.0+%s' % get_git_commit_number()
     write_version_to_file(version, 'pcdet/version.py')
@@ -80,7 +91,12 @@ if __name__ == '__main__':
         author_email='shaoshuaics@gmail.com',
         license='Apache License 2.0',
         packages=find_packages(exclude=['tools', 'data', 'output']),
-        cmdclass={'build_ext': BuildExtension},
+        cmdclass={
+            'build_ext': BuildExtension,
+            'install': PostInstallation,
+            # Post installation cannot be done. ref: https://github.com/pypa/setuptools/issues/1936.
+            # 'develop': PostInstallation,
+        },
         ext_modules=[
             make_cuda_ext(
                 name='sparse_conv_ext',
@@ -153,6 +169,8 @@ if __name__ == '__main__':
                     'src/sampling_gpu.cu',
                     'src/interpolate.cpp',
                     'src/interpolate_gpu.cu',
+                    'src/voxel_query.cpp', 
+                    'src/voxel_query_gpu.cu',
                 ],
             ),
             make_cuda_ext(

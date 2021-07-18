@@ -313,3 +313,32 @@ class GaussianFocalLoss(nn.Module):
             alpha=self.alpha,
             gamma=self.gamma)
         return loss_reg
+
+
+def compute_fg_mask(gt_boxes2d, shape, downsample_factor=1, device=torch.device("cpu")):
+    """
+    Compute foreground mask for images
+    Args:
+        gt_boxes2d: (B, N, 4), 2D box labels
+        shape: torch.Size or tuple, Foreground mask desired shape
+        downsample_factor: int, Downsample factor for image
+        device: torch.device, Foreground mask desired device
+    Returns:
+        fg_mask (shape), Foreground mask
+    """
+    fg_mask = torch.zeros(shape, dtype=torch.bool, device=device)
+
+    # Set box corners
+    gt_boxes2d /= downsample_factor
+    gt_boxes2d[:, :, :2] = torch.floor(gt_boxes2d[:, :, :2])
+    gt_boxes2d[:, :, 2:] = torch.ceil(gt_boxes2d[:, :, 2:])
+    gt_boxes2d = gt_boxes2d.long()
+
+    # Set all values within each box to True
+    B, N = gt_boxes2d.shape[:2]
+    for b in range(B):
+        for n in range(N):
+            u1, v1, u2, v2 = gt_boxes2d[b, n]
+            fg_mask[b, v1:v2, u1:u2] = True
+
+    return fg_mask

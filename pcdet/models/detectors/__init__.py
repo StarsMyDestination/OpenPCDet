@@ -4,6 +4,9 @@ from .point_rcnn import PointRCNN
 from .pointpillar import PointPillar
 from .pv_rcnn import PVRCNN
 from .second_net import SECONDNet
+from .second_net_iou import SECONDNetIoU
+from .caddn import CaDDN
+from .voxel_rcnn import VoxelRCNN
 from .rv_centerNet import RVCenterNet
 
 __all__ = {
@@ -13,6 +16,9 @@ __all__ = {
     'PVRCNN': PVRCNN,
     'PointPillar': PointPillar,
     'PointRCNN': PointRCNN,
+    'SECONDNetIoU': SECONDNetIoU,
+    'CaDDN': CaDDN,
+    'VoxelRCNN': VoxelRCNN,
     'RVCenterNet': RVCenterNet,
 }
 
