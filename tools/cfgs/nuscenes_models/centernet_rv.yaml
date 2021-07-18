@@ -5,6 +5,41 @@ DATA_CONFIG:
     _BASE_CONFIG_: cfgs/dataset_configs/nuscenes_dataset.yaml
 
     POINT_CLOUD_RANGE: [-51.2, -51.2, -5.0, 51.2, 51.2, 3.0]
+
+    DATA_AUGMENTOR:
+        DISABLE_AUG_LIST: ['placeholder', 'gt_sampling'] # TODO enable gt_sampling later!
+        AUG_CONFIG_LIST:
+            - NAME: gt_sampling
+              DB_INFO_PATH:
+                  - nuscenes_dbinfos_10sweeps_withvelo.pkl
+              PREPARE: {
+                  filter_by_min_points: [
+                      'car:5','truck:5', 'construction_vehicle:5', 'bus:5', 'trailer:5',
+                      'barrier:5', 'motorcycle:5', 'bicycle:5', 'pedestrian:5', 'traffic_cone:5'
+                  ],
+              }
+
+              SAMPLE_GROUPS: [
+                  'car:2','truck:3', 'construction_vehicle:7', 'bus:4', 'trailer:6',
+                  'barrier:2', 'motorcycle:6', 'bicycle:6', 'pedestrian:2', 'traffic_cone:2'
+              ]
+
+              NUM_POINT_FEATURES: 5
+              DATABASE_WITH_FAKELIDAR: False
+              REMOVE_EXTRA_WIDTH: [0.0, 0.0, 0.0]
+              LIMIT_WHOLE_SCENE: True
+
+            - NAME: random_world_flip
+              ALONG_AXIS_LIST: ['x', 'y']
+
+            - NAME: random_world_rotation
+              WORLD_ROT_ANGLE: [-0.3925, 0.3925]
+
+            - NAME: random_world_scaling
+              WORLD_SCALE_RANGE: [0.95, 1.05]
+
+
+
     DATA_PROCESSOR:
         -   NAME: mask_points_and_boxes_outside_range
             REMOVE_OUTSIDE_BOXES: True
@@ -28,13 +63,13 @@ MODEL:
 
     MAP_TO_RV:
         NAME: BasicRangeProjection
-        USE_RINGID: True
+        USE_RINGID: False
         RINGID_IDX: -2 #[... ringID timestamps]
 
         USE_XYZ: True
 
         H_FOV: [-180, 180] # deg. clockwise, forward is 0 degree
-        H_RES: 0.02 # deg, horizontal resolution
+        H_RES: 0.2 # deg, horizontal resolution
         V_FOV: [-10, 30] # deg. clockwise, horizon is 0 degree # 向上10度，向下30度
         V_RES: 1.25 # deg. vertical resolution
 
@@ -49,7 +84,8 @@ MODEL:
         NAME: CTResNetNeck
         NUM_DECONV_FILTERS: [256, 128, 64]
         NUM_DECONV_KERNELS: [4, 4, 4]
-        USE_DCN: True
+        USE_DCN: False # TODO DCN have keyerror due to mmcv import bug
+
 
     DENSE_HEAD:
         NAME: RVCenterNetHead

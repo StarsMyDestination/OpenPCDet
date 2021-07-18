@@ -25,7 +25,7 @@ class SphereProjection(object):
         theta = -torch.atan2(xyz[:, 1], xyz[:, 0]).unsqueeze(-1)  # Nx1
 
         if compute_phi:
-            phi = -torch.asin(xyz[:, 2] / torch.clamp_min(r, 1e-5)).unsqueeze(-1)  # Nx1
+            phi = -torch.asin(xyz[:, 2] / torch.clamp_min(r.squeeze(), 1e-5)).unsqueeze(-1)  # Nx1
             return torch.cat([r, theta, phi], dim=-1)  # Nx3
         else:
             return torch.cat([r, theta], dim=-1)  # Nx2
@@ -49,33 +49,33 @@ def points_to_rvImage(points,
     assert ang_format in ['deg', 'rad'], f'invalid ang_format: {ang_format}'
     if ang_format == 'deg':
         factor = 180.0 / np.pi
-        h_fov = (x / factor for x in list(h_fov))
+        h_fov = [x / factor for x in list(h_fov)]
         h_res /= factor
-        v_fov = (x / factor for x in list(v_fov))
+        v_fov = [x / factor for x in list(v_fov)]
         v_res /= factor
 
     xyz = points[:, 0:3]
     rThetaPhi = SphereProjection.xyz_to_rThetaPhi(xyz)
 
     # mask outside points
-    mask1 = (rThetaPhi[:, 1] >= h_fov[0] and rThetaPhi[:, 1] < h_fov[1])
+    mask1 = (rThetaPhi[:, 1] >= h_fov[0]) & (rThetaPhi[:, 1] < h_fov[1])
     if not use_ringID:
-        mask2 = (rThetaPhi[:, 2] >= v_fov[0] and rThetaPhi[:, 2] < v_fov[1])
-        mask = mask1 | mask2
+        mask2 = (rThetaPhi[:, 2] >= v_fov[0]) & (rThetaPhi[:, 2] < v_fov[1])
+        mask = mask1 & mask2
     else:
         mask = mask1
     points = points[mask]
     rThetaPhi = rThetaPhi[mask]
 
-    u = int((rThetaPhi[:, 1] - h_fov[0]) / h_res)
+    u = ((rThetaPhi[:, 1] - h_fov[0]) / h_res).long()
 
     if not use_ringID:
         features = points[:, 3:]
-        v = int((rThetaPhi[:, 2] - v_fov[0]) / v_res)
+        v = ((rThetaPhi[:, 2] - v_fov[0]) / v_res).long()
     else:
         ringID = points[:, 0:3], points[:, ringID_idx]
         features = points[:, list(range(points.shape[1])).pop(ringID_idx)[3:]]
-        v = ringID
+        v = ringID.long()
 
     # gather features
     use_xyz = kwargs.get('use_xyz', True)
@@ -138,16 +138,29 @@ class BasicRangeProjection(nn.Module):
 
         super().__init__()
         self.cfg = cfg
-        self.use_ringID = self.cfg.USE_RINGID
         self.num_rv_features = input_channels
+
+        self.use_ringID = cfg.USE_RINGID
+        self.use_xyz = cfg.get('USE_XYZ', True)
 
         if self.use_ringID:
             self.num_rv_features -= 1  # remove rangID in features
 
-        if self.cfg.get('USE_XYZ', True):
+        if self.use_xyz:
             self.num_rv_features += 3  # add xyz in features
 
-        self.proj_func = partial(points_to_rvImage, **cfg)
+        proj_cfg = {
+            'h_fov': cfg.H_FOV,
+            'h_res': cfg.H_RES,
+            'v_fov': cfg.V_FOV,
+            'v_res': cfg.V_RES,
+            'use_ringID': self.use_ringID,
+            'ringID_idx': cfg.RINGID_IDX,
+            'ang_format': cfg.get('ANG_FORMAT', 'deg'),
+            'use_xyz': self.use_xyz,
+        }
+
+        self.proj_func = partial(points_to_rvImage, **proj_cfg)
 
     def forward(self, batch_dict):
         """
@@ -163,10 +176,11 @@ class BasicRangeProjection(nn.Module):
         points = batch_dict['points']
         bs_idx, points = points[:, 0], points[:, 1:]
         batch_size = batch_dict['batch_size']
+
         rv_images = []
         for bs_cnt in range(batch_size):
             one_point = points[bs_idx == bs_cnt]
-            rv_image = self.proj_func(one_point)
+            rv_image = self.proj_func(one_point).unsqueeze(0)
             rv_images.append(rv_image)
         rv_images = torch.cat(rv_images, dim=0)  # NCHW
 
