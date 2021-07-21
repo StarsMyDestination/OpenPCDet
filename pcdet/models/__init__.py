@@ -28,7 +28,7 @@ def load_data_to_gpu(batch_dict):
             continue
         elif key in ['images']:
             batch_dict[key] = image_to_tensor(val).float().cuda().contiguous()
-        elif key in ['image_shape']:
+        elif key in ['image_shape', 'num_valid_gt']:
             batch_dict[key] = torch.from_numpy(val).int().cuda()
         else:
             batch_dict[key] = torch.from_numpy(val).float().cuda()

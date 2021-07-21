@@ -85,7 +85,9 @@ class CTResNetNeck(BaseModule):
                 # reset the Conv2d initialization parameters
                 m.reset_parameters()
 
-    def forward(self, inputs):
-        assert isinstance(inputs, (list, tuple))
+    def forward(self, batch_dict):
+        inputs = batch_dict['spatial_features_list']
         outs = self.deconv_layers(inputs[-1])
-        return outs,
+
+        batch_dict['spatial_features_2d'] = outs
+        return batch_dict

@@ -64,7 +64,7 @@ MODEL:
     MAP_TO_RV:
         NAME: BasicRangeProjection
         USE_RINGID: False
-        RINGID_IDX: -2 #[... ringID timestamps]
+        RINGID_IDX: -2 #[..., ringID, timestamps]
 
         USE_XYZ: True
 
@@ -93,33 +93,33 @@ MODEL:
 
         FEAT_CHANNEL: 64
 
-        SEPARATE_REG_CONFIG: 
-            NUM_MIDDLE_CONV: 1
-            NUM_MIDDLE_FILTER: 64
-            REG_LIST: ['reg:2', 'height:1', 'size:3', 'angle:2', 'velo:2']
 
-        TARGET_ASSIGNER_CONFIG:
-            NAME: AxisAlignedTargetAssigner
-            POS_FRACTION: -1.0
-            SAMPLE_SIZE: 512
-            NORM_BY_NUM_EXAMPLES: False
-            MATCH_HEIGHT: False
-            BOX_CODER: ResidualCoder
-            BOX_CODER_CONFIG: {
-                'code_size': 9,
-                'encode_angle_by_sincos': True
-            }
+
+#        SEPARATE_REG_CONFIG:
+#            NUM_MIDDLE_CONV: 1
+#            NUM_MIDDLE_FILTER: 64
+#            REG_LIST: ['reg:2', 'height:1', 'size:3', 'angle:2', 'velo:2']
+#
+#        TARGET_ASSIGNER_CONFIG:
+#            NAME: AxisAlignedTargetAssigner
+#            POS_FRACTION: -1.0
+#            SAMPLE_SIZE: 512
+#            NORM_BY_NUM_EXAMPLES: False
+#            MATCH_HEIGHT: False
+#            BOX_CODER: ResidualCoder
+#            BOX_CODER_CONFIG: {
+#                'code_size': 9,
+#                'encode_angle_by_sincos': True
+#            }
 
 
         LOSS_CONFIG:
-            REG_LOSS_TYPE: WeightedL1Loss
             LOSS_WEIGHTS: {
-                'pos_cls_weight': 1.0,
-                'neg_cls_weight': 2.0,
-                'cls_weight': 1.0,
-                'loc_weight': 0.25,
-                'dir_weight': 0.2,
-                'code_weights': [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.2, 0.2]
+                'heatmap_cls_weight': 1.0,
+                'lwh_reg_weight': 0.1,
+                'offset_reg_weight': 1.0,
+                'depth_reg_weight': 1.0,
+                'dir_reg_weight': 1.0,
             }
 
     POST_PROCESSING:

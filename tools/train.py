@@ -66,6 +66,8 @@ def parse_config():
         args.batch_size = 1
         args.workers = 0
         args.epoches = 1
+        args.fix_random_seed = True
+
     ## END
 
     cfg_from_yaml_file(args.cfg_file, cfg)

@@ -341,7 +341,7 @@ class ResNet(BaseModule):
             Default: None
 
     Example:
-        >>> from mmdet.models import ResNet
+        >>> from pcdet.models.backbones_2d import ResNet
         >>> import torch
         >>> self = ResNet(depth=18)
         >>> self.eval()
@@ -648,7 +648,9 @@ class ResNet(BaseModule):
             x = res_layer(x)
             if i in self.out_indices:
                 outs.append(x)
-        return tuple(outs)  # TODO
+
+        batch_dict['spatial_features_list'] = outs
+        return batch_dict
 
     def train(self, mode=True):
         """Convert the model into training mode while keep normalization layer
