@@ -119,6 +119,7 @@ class Detector3DTemplate(nn.Module):
         model_info_dict['module_list'].append(map_to_rv_module)
         model_info_dict['num_rv_features'] = map_to_rv_module.num_rv_features
         model_info_dict['rp_trans_api'] = map_to_rv_module.rp_trans_api
+        model_info_dict['use_observation_angle'] = map_to_rv_module.use_observation_angle
         return map_to_rv_module, model_info_dict
 
     def build_backbone_2d(self, model_info_dict):
@@ -185,6 +186,7 @@ class Detector3DTemplate(nn.Module):
             point_cloud_range=model_info_dict.get('point_cloud_range', None),
             predict_boxes_when_training=self.model_cfg.get('ROI_HEAD', False),
             rp_trans_api=model_info_dict.get('rp_trans_api', None),
+            use_observation_angle=model_info_dict.get('use_observation_angle', False),
         )
         model_info_dict['module_list'].append(dense_head_module)
         return dense_head_module, model_info_dict

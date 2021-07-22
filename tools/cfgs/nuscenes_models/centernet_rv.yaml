@@ -77,6 +77,10 @@ MODEL:
 
         H_UPSAMPLE_RATIO: 4 # 32->128
 
+        TRAIN_CFG:
+            FILTER_GT_BOXES: True
+            USE_OBSERVATION_ANGLE: True
+
 
     BACKBONE_2D_RANGEVIEW:
         NAME: ResNet

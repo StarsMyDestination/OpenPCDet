@@ -174,6 +174,9 @@ class BasicRangeProjection(nn.Module):
 
         self.rp_trans_api = RPTransformation(**proj_cfg)
 
+        self.filter_gt_boxes = cfg.TRAIN_CFG.FILTER_GT_BOXES
+        self.use_observation_angle = cfg.TRAIN_CFG.USE_OBSERVATION_ANGLE
+
     def forward(self, batch_dict):
         """
         Args:
@@ -202,16 +205,26 @@ class BasicRangeProjection(nn.Module):
         })
 
         if self.training:
-            # TODO maybe filter objects outside here.
             gt_boxes = batch_dict['gt_boxes']
             gt_boxes_rv = gt_boxes.new_zeros((batch_size, gt_boxes.shape[1], 4))  # [cx, cy, w, h]
             num_valid_gt = batch_dict['num_valid_gt']
             for bs_cnt in range(batch_size):
                 one_n_valid_gt = num_valid_gt[bs_cnt]
-                one_gt_box = gt_boxes[bs_cnt, :one_n_valid_gt]
+                one_gt_box = gt_boxes[bs_cnt, :one_n_valid_gt].clone()
                 center = one_gt_box[:, 0:3]
                 center_uv_normed = self.rp_trans_api.xyz_to_uvNormed(center)
-                center_uv_normed = torch.clamp(center_uv_normed, 0, 1 - 1e-3)
+
+                if self.filter_gt_boxes:
+                    mask = (center_uv_normed[:, 0] >= 0) & (center_uv_normed[:, 0] < 1) & \
+                           (center_uv_normed[:, 1] >= 0) & (center_uv_normed[:, 1] < 1)
+                    one_gt_box = one_gt_box[mask]
+                    center_uv_normed = center_uv_normed[mask]
+                    one_n_valid_gt = mask.sum()
+                    gt_boxes[bs_cnt] = 0
+                    gt_boxes[bs_cnt, :one_n_valid_gt] = one_gt_box
+                else:
+                    center_uv_normed = torch.clamp(center_uv_normed, 0, 1 - 1e-3)
+
                 ##!! gives wrong answer when using torch.matmul in 'rotate_points_along_z' on cuda
                 # due to pip-installed pytorch1.8.1+cu111 bug(https://github.com/pytorch/pytorch/issues/56747)!!
                 # corners = boxes_to_corners_3d(one_gt_box.cpu()).to(one_gt_box.device)  # Nx8x3
@@ -222,6 +235,11 @@ class BasicRangeProjection(nn.Module):
                 corners_uv_max = torch.clamp_max(torch.max(corners_uv_normed, dim=1)[0], 1)
                 wh_normed = corners_uv_max - corners_uv_min
                 gt_boxes_rv[bs_cnt, :one_n_valid_gt] = torch.cat([center_uv_normed, wh_normed], dim=1)
+
+                if self.use_observation_angle:
+                    theta = torch.atan2(one_gt_box[:, 1], one_gt_box[:, 0])
+                    one_gt_box[:, 6] -= theta
+                    gt_boxes[bs_cnt, :one_n_valid_gt] = one_gt_box
 
             batch_dict['gt_boxes_rv'] = gt_boxes_rv  # normed [cx cy w h]
         return batch_dict

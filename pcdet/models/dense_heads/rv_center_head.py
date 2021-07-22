@@ -29,11 +29,12 @@ class RVCenterNetHead(nn.Module):
             Default: None
     """
 
-    def __init__(self, model_cfg, input_channels, num_class, rp_trans_api, **kwargs):
+    def __init__(self, model_cfg, input_channels, num_class, rp_trans_api, use_observation_angle, **kwargs):
         super().__init__()
         self.model_cfg = model_cfg
         self.num_classes = num_class
         self.rp_trans_api = rp_trans_api
+        self.use_observation_angle = use_observation_angle
 
         feat_channel = model_cfg.FEAT_CHANNEL
         self.heatmap_head = self._build_head(input_channels, feat_channel, num_class)
@@ -387,6 +388,9 @@ class RVCenterNetHead(nn.Module):
         center_xyz = torch.stack(center_xyz, dim=0)
 
         dir = torch.atan2(dir[..., 1], dir[..., 0])
+        if self.use_observation_angle:
+            theta = torch.atan2(center_xyz[..., 1], center_xyz[..., 0])
+            dir += theta
 
         batch_bboxes = torch.cat([center_xyz, lwh, dir[..., None]], dim=-1)
 
