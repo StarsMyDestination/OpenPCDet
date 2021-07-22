@@ -23,7 +23,7 @@ def parse_config():
 
     parser.add_argument('--batch_size', type=int, default=None, required=False, help='batch size for training')
     parser.add_argument('--workers', type=int, default=4, help='number of workers for dataloader')
-    parser.add_argument('--extra_tag', type=str, default='default', help='extra tag for this experiment')
+    parser.add_argument('--extra_tag', type=str, default='debug', help='extra tag for this experiment')
     parser.add_argument('--ckpt', type=str, default=None, help='checkpoint to start from')
     parser.add_argument('--launcher', choices=['none', 'pytorch', 'slurm'], default='none')
     parser.add_argument('--tcp_port', type=int, default=18888, help='tcp port for distrbuted training')
@@ -39,6 +39,19 @@ def parse_config():
     parser.add_argument('--save_to_file', action='store_true', default=False, help='')
 
     args = parser.parse_args()
+
+    ## TODO DEBUG
+    if args.extra_tag == 'debug':
+        ## nuScenes
+        args.cfg_file = 'cfgs/nuscenes_models/centernet_rv.yaml'
+        args.ckpt = '../output/nuscenes_models/centernet_rv/baseline/ckpt/checkpoint_epoch_1.pth'
+
+        args.batch_size = 1
+        args.workers = 0
+
+        os.environ['CUDA_LAUNCH_BLOCKING'] = '1'  # used to debug cuda device trigger error.
+
+    ## END
 
     cfg_from_yaml_file(args.cfg_file, cfg)
     cfg.TAG = Path(args.cfg_file).stem

@@ -65,8 +65,11 @@ def parse_config():
 
         args.batch_size = 1
         args.workers = 0
-        args.epoches = 1
+        args.epochs = 1
         args.fix_random_seed = True
+        # torch.backends.cudnn.benchmark = True
+
+        os.environ['CUDA_LAUNCH_BLOCKING'] = '1' # used to debug cuda device trigger error.
 
     ## END
 

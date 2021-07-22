@@ -29,9 +29,12 @@ class RVCenterNetHead(nn.Module):
             Default: None
     """
 
-    def __init__(self, model_cfg, input_channels, num_class, **kwargs):
+    def __init__(self, model_cfg, input_channels, num_class, rp_trans_api, **kwargs):
         super().__init__()
+        self.model_cfg = model_cfg
         self.num_classes = num_class
+        self.rp_trans_api = rp_trans_api
+
         feat_channel = model_cfg.FEAT_CHANNEL
         self.heatmap_head = self._build_head(input_channels, feat_channel, num_class)
         self.lwh_head = self._build_head(input_channels, feat_channel, 3)
@@ -99,9 +102,16 @@ class RVCenterNetHead(nn.Module):
             self.forward_ret_dict['num_valid_gt'] = data_dict['num_valid_gt']
             # self.forward_ret_dict['rv_img_shape'] = data_dict['rv_img_shape']
 
-
         else:
-            self.get_bboxes()
+            batch_box_preds, batch_cls_labels, batch_cls_scores \
+                = self.generate_predicted_boxes(center_heatmap_preds, lwh_preds,
+                                                offset_preds, depth_preds,
+                                                dir_preds, self.rp_trans_api)
+
+            data_dict['batch_cls_labels'] = batch_cls_labels
+            data_dict['batch_box_preds'] = batch_box_preds
+            data_dict['batch_cls_scores'] = batch_cls_scores
+        return data_dict
 
     def forward_single(self, feat):
         """Forward feature of a single level.
@@ -263,8 +273,8 @@ class RVCenterNetHead(nn.Module):
 
                 depth_target[batch_id, :, cty_int, ctx_int] = torch.log(torch.norm(gt_box[j, 0:3]) + 1)
 
-                dir_target[batch_id, 0, cty_int, ctx_int] = torch.sin(gt_box[j, 6])
-                dir_target[batch_id, 1, cty_int, ctx_int] = torch.cos(gt_box[j, 6])
+                dir_target[batch_id, 0, cty_int, ctx_int] = torch.cos(gt_box[j, 6])
+                dir_target[batch_id, 1, cty_int, ctx_int] = torch.sin(gt_box[j, 6])
 
                 reg_weight[batch_id, :, cty_int, ctx_int] = 1
 
@@ -278,13 +288,13 @@ class RVCenterNetHead(nn.Module):
             reg_weight=reg_weight)
         return target_result, avg_factor
 
-    def get_bboxes(self,
-                   center_heatmap_preds,
-                   wh_preds,
-                   offset_preds,
-                   img_metas,
-                   rescale=True,
-                   with_nms=False):
+    def generate_predicted_boxes(self,
+                                 center_heatmap_preds,
+                                 lwh_preds,
+                                 offset_preds,
+                                 depth_preds,
+                                 dir_preds,
+                                 rp_trans_api):
         """Transform network output for a batch into bbox predictions.
 
         Args:
@@ -294,12 +304,8 @@ class RVCenterNetHead(nn.Module):
                 shape (B, 2, H, W).
             offset_preds (list[Tensor]): offset predicts for all levels
                 with shape (B, 2, H, W).
-            img_metas (list[dict]): Meta information of each image, e.g.,
+            rp_trans_api (list[dict]): Meta information of each image, e.g.,
                 image size, scaling factor, etc.
-            rescale (bool): If True, return boxes in original image space.
-                Default: True.
-            with_nms (bool): If True, do nms before return boxes.
-                Default: False.
 
         Returns:
             list[tuple[Tensor, Tensor]]: Each item in result_list is 2-tuple.
@@ -309,45 +315,28 @@ class RVCenterNetHead(nn.Module):
                 each element represents the class label of the corresponding
                 box.
         """
-        assert len(center_heatmap_preds) == len(wh_preds) == len(
-            offset_preds) == 1
-        scale_factors = [img_meta['scale_factor'] for img_meta in img_metas]
-        border_pixs = [img_meta['border'] for img_meta in img_metas]
+        assert len(center_heatmap_preds) == len(lwh_preds) == len(offset_preds) \
+               == len(depth_preds) == len(dir_preds) == 1
 
-        batch_det_bboxes, batch_labels = self.decode_heatmap(
+        batch_det_bboxes, batch_labels, batch_scores = self.decode_heatmap(
             center_heatmap_preds[0],
-            wh_preds[0],
+            lwh_preds[0],
             offset_preds[0],
-            img_metas[0]['batch_input_shape'],
-            k=self.test_cfg.topk,
-            kernel=self.test_cfg.local_maximum_kernel)
+            depth_preds[0],
+            dir_preds[0],
+            rp_trans_api,
+            k=self.model_cfg.TEST_CFG.TOP_K,
+            kernel=self.model_cfg.TEST_CFG.LOCAL_MAXIMUM_KERNEL)
 
-        batch_border = batch_det_bboxes.new_tensor(
-            border_pixs)[:, [2, 0, 2, 0]].unsqueeze(1)
-        batch_det_bboxes[..., :4] -= batch_border
-
-        if rescale:
-            batch_det_bboxes[..., :4] /= batch_det_bboxes.new_tensor(
-                scale_factors).unsqueeze(1)
-
-        if with_nms:
-            det_results = []
-            for (det_bboxes, det_labels) in zip(batch_det_bboxes,
-                                                batch_labels):
-                det_bbox, det_label = self._bboxes_nms(det_bboxes, det_labels,
-                                                       self.test_cfg)
-                det_results.append(tuple([det_bbox, det_label]))
-        else:
-            det_results = [
-                tuple(bs) for bs in zip(batch_det_bboxes, batch_labels)
-            ]
-        return det_results
+        return batch_det_bboxes, batch_labels, batch_scores
 
     def decode_heatmap(self,
                        center_heatmap_pred,
-                       wh_pred,
+                       lwh_pred,
                        offset_pred,
-                       img_shape,
+                       depth_pred,
+                       dir_pred,
+                       rp_trans_api,
                        k=100,
                        kernel=3):
         """Transform outputs into detections raw bbox prediction.
@@ -355,8 +344,10 @@ class RVCenterNetHead(nn.Module):
         Args:
             center_heatmap_pred (Tensor): center predict heatmap,
                shape (B, num_classes, H, W).
-            wh_pred (Tensor): wh predict, shape (B, 2, H, W).
+            lwh_pred (Tensor): wh predict, shape (B, 3, H, W).
             offset_pred (Tensor): offset predict, shape (B, 2, H, W).
+            depth_pred (Tensor): depth predict, shape (B, 1, H, W).
+            dir_pred (Tensor): direction predict, shape (B, 2, H, W).
             img_shape (list[int]): image shape in [h, w] format.
             k (int): Get top k center keypoints from heatmap. Default 100.
             kernel (int): Max pooling kernel for extract local maximum pixels.
@@ -371,41 +362,32 @@ class RVCenterNetHead(nn.Module):
                   shape (B, k)
         """
         height, width = center_heatmap_pred.shape[2:]
-        inp_h, inp_w = img_shape
 
-        center_heatmap_pred = get_local_maximum(
-            center_heatmap_pred, kernel=kernel)
+        center_heatmap_pred = get_local_maximum(center_heatmap_pred, kernel=kernel)
 
-        *batch_dets, topk_ys, topk_xs = get_topk_from_heatmap(
-            center_heatmap_pred, k=k)
+        *batch_dets, topk_ys, topk_xs = get_topk_from_heatmap(center_heatmap_pred, k=k)
         batch_scores, batch_index, batch_topk_labels = batch_dets
 
-        wh = transpose_and_gather_feat(wh_pred, batch_index)
-        offset = transpose_and_gather_feat(offset_pred, batch_index)
+        lwh = transpose_and_gather_feat(lwh_pred, batch_index)  # (B, topK, 3)
+        offset = transpose_and_gather_feat(offset_pred, batch_index)  # (B, topK, 2)
+        depth = transpose_and_gather_feat(depth_pred, batch_index)  # (B, topK, 1)
+        dir = transpose_and_gather_feat(dir_pred, batch_index)  # (B, topK, 2)
+
         topk_xs = topk_xs + offset[..., 0]
         topk_ys = topk_ys + offset[..., 1]
-        tl_x = (topk_xs - wh[..., 0] / 2) * (inp_w / width)
-        tl_y = (topk_ys - wh[..., 1] / 2) * (inp_h / height)
-        br_x = (topk_xs + wh[..., 0] / 2) * (inp_w / width)
-        br_y = (topk_ys + wh[..., 1] / 2) * (inp_h / height)
 
-        batch_bboxes = torch.stack([tl_x, tl_y, br_x, br_y], dim=2)
-        batch_bboxes = torch.cat((batch_bboxes, batch_scores[..., None]),
-                                 dim=-1)
-        return batch_bboxes, batch_topk_labels
+        u_normed = topk_xs / width
+        v_normed = topk_ys / height
+        uv_normed = torch.stack([u_normed, v_normed], dim=2)
 
-    def _bboxes_nms(self, bboxes, labels, cfg):
-        if labels.numel() == 0:
-            return bboxes, labels
+        depth = torch.exp(depth) - 1
+        center_xyz = []
+        for one_uv_normed, one_depth in zip(uv_normed, depth):
+            center_xyz.append(rp_trans_api.uvNormed_to_xyz(one_uv_normed, one_depth))
+        center_xyz = torch.stack(center_xyz, dim=0)
 
-        out_bboxes, keep = batched_nms(bboxes[:, :4], bboxes[:, -1], labels,
-                                       cfg.nms_cfg)
-        out_labels = labels[keep]
+        dir = torch.atan2(dir[..., 1], dir[..., 0])
 
-        if len(out_bboxes) > 0:
-            idx = torch.argsort(out_bboxes[:, -1], descending=True)
-            idx = idx[:cfg.max_per_img]
-            out_bboxes = out_bboxes[idx]
-            out_labels = out_labels[idx]
+        batch_bboxes = torch.cat([center_xyz, lwh, dir[..., None]], dim=-1)
 
-        return out_bboxes, out_labels
+        return batch_bboxes, batch_topk_labels, batch_scores

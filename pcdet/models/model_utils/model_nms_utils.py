@@ -15,7 +15,7 @@ def class_agnostic_nms(box_scores, box_preds, nms_config, score_thresh=None):
         box_scores_nms, indices = torch.topk(box_scores, k=min(nms_config.NMS_PRE_MAXSIZE, box_scores.shape[0]))
         boxes_for_nms = box_preds[indices]
         keep_idx, selected_scores = getattr(iou3d_nms_utils, nms_config.NMS_TYPE)(
-                boxes_for_nms[:, 0:7], box_scores_nms, nms_config.NMS_THRESH, **nms_config
+            boxes_for_nms[:, 0:7], box_scores_nms, nms_config.NMS_THRESH, **nms_config
         )
         selected = indices[keep_idx[:nms_config.NMS_POST_MAXSIZE]]
 
@@ -51,12 +51,59 @@ def multi_classes_nms(cls_scores, box_preds, nms_config, score_thresh=None):
             box_scores_nms, indices = torch.topk(box_scores, k=min(nms_config.NMS_PRE_MAXSIZE, box_scores.shape[0]))
             boxes_for_nms = cur_box_preds[indices]
             keep_idx, selected_scores = getattr(iou3d_nms_utils, nms_config.NMS_TYPE)(
-                    boxes_for_nms[:, 0:7], box_scores_nms, nms_config.NMS_THRESH, **nms_config
+                boxes_for_nms[:, 0:7], box_scores_nms, nms_config.NMS_THRESH, **nms_config
             )
             selected = indices[keep_idx[:nms_config.NMS_POST_MAXSIZE]]
 
         pred_scores.append(box_scores[selected])
         pred_labels.append(box_scores.new_ones(len(selected)).long() * k)
+        pred_boxes.append(cur_box_preds[selected])
+
+    pred_scores = torch.cat(pred_scores, dim=0)
+    pred_labels = torch.cat(pred_labels, dim=0)
+    pred_boxes = torch.cat(pred_boxes, dim=0)
+
+    return pred_scores, pred_labels, pred_boxes
+
+
+def multi_classes_nms_v2(cls_scores, cls_labels, box_preds, nms_config, score_thresh=None):
+    """
+    Args:
+        cls_scores: (N,)
+        cls_labels: (N,)
+        box_preds: (N, 7 + C)
+        nms_config:
+        score_thresh:
+
+    Returns:
+
+    """
+    classes = torch.unique(cls_labels)
+    pred_scores, pred_labels, pred_boxes = [], [], []
+    for cls in classes:
+        cls_mask = (cls_labels == cls)
+        if score_thresh is not None:
+            scores_mask = (cls_scores >= score_thresh)
+            mask = (cls_mask & scores_mask)
+        else:
+            mask = cls_mask
+
+        cur_cls_labels = cls_labels[mask]
+        cur_cls_scores = cls_scores[mask]
+        cur_box_preds = box_preds[mask]
+
+        selected = []
+        if cur_cls_scores.shape[0] > 0:
+            box_scores_nms, indices = torch.topk(cur_cls_scores,
+                                                 k=min(nms_config.NMS_PRE_MAXSIZE, cur_cls_scores.shape[0]))
+            boxes_for_nms = cur_box_preds[indices]
+            keep_idx, selected_scores = getattr(iou3d_nms_utils, nms_config.NMS_TYPE)(
+                boxes_for_nms[:, 0:7], box_scores_nms, nms_config.NMS_THRESH, **nms_config
+            )
+            selected = indices[keep_idx[:nms_config.NMS_POST_MAXSIZE]]
+
+        pred_scores.append(cur_cls_scores[selected])
+        pred_labels.append(cur_cls_labels[selected])
         pred_boxes.append(cur_box_preds[selected])
 
     pred_scores = torch.cat(pred_scores, dim=0)

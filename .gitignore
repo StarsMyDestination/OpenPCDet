@@ -16,3 +16,4 @@ venv/
 output/
 third_party/
 version.py
+notebook/

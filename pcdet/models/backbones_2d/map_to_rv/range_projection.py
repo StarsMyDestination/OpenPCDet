@@ -31,10 +31,10 @@ class SphereProjection(object):
     @classmethod
     def rThetaPhi_to_xyz(cls, rThetaPhi):
         r, theta, phi = torch.split(rThetaPhi, 1, dim=-1)
-        z = -r * torch.sin(phi).unsqueeze(-1)
+        z = -r * torch.sin(phi)
         xy = r * torch.cos(phi)
-        x = xy * torch.cos(theta).unsqueeze(-1)
-        y = -xy * torch.sin(theta).unsqueeze(-1)
+        x = xy * torch.cos(theta)
+        y = -xy * torch.sin(theta)
         return torch.cat([x, y, z], dim=-1)  # Nx3
 
 
@@ -89,9 +89,10 @@ class RPTransformation(object):
         :return: Nx3
         '''
         assert not self.use_ringID, 'if use ringID as range image height, then it is not compatible to convert uv back to xyz!'
-        u, v = torch.split(uv_normed, 1, dim=-1)
-        theta = u.unsqueeze(-1) * (self.h_fov[1] - self.h_fov[0]) + self.h_fov[0]
-        phi = v.unsqueeze(-1) * (self.v_fov[1] - self.v_fov[0]) + self.v_fov[0]
+        assert len(range.shape) == 2 and range.shape[1] == 1
+        u, v = torch.split(uv_normed, 1, dim=-1)  # Nx1, Nx1
+        theta = u * (self.h_fov[1] - self.h_fov[0]) + self.h_fov[0]
+        phi = v * (self.v_fov[1] - self.v_fov[0]) + self.v_fov[0]
 
         rThetaPhi = torch.cat([range, theta, phi], dim=-1)
 

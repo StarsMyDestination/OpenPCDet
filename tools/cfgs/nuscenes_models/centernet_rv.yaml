@@ -95,24 +95,6 @@ MODEL:
 
 
 
-#        SEPARATE_REG_CONFIG:
-#            NUM_MIDDLE_CONV: 1
-#            NUM_MIDDLE_FILTER: 64
-#            REG_LIST: ['reg:2', 'height:1', 'size:3', 'angle:2', 'velo:2']
-#
-#        TARGET_ASSIGNER_CONFIG:
-#            NAME: AxisAlignedTargetAssigner
-#            POS_FRACTION: -1.0
-#            SAMPLE_SIZE: 512
-#            NORM_BY_NUM_EXAMPLES: False
-#            MATCH_HEIGHT: False
-#            BOX_CODER: ResidualCoder
-#            BOX_CODER_CONFIG: {
-#                'code_size': 9,
-#                'encode_angle_by_sincos': True
-#            }
-
-
         LOSS_CONFIG:
             LOSS_WEIGHTS: {
                 'heatmap_cls_weight': 1.0,
@@ -122,6 +104,11 @@ MODEL:
                 'dir_reg_weight': 1.0,
             }
 
+        TEST_CFG:
+            TOP_K: 100
+            LOCAL_MAXIMUM_KERNEL: 3
+
+
     POST_PROCESSING:
         RECALL_THRESH_LIST: [0.3, 0.5, 0.7]
         SCORE_THRESH: 0.1
@@ -129,6 +116,7 @@ MODEL:
 
         EVAL_METRIC: kitti
 
+        USE_NMS: True
         NMS_CONFIG:
             MULTI_CLASSES_NMS: True
             NMS_TYPE: nms_gpu
