@@ -8,7 +8,7 @@ from .anchor_head_template import AnchorHeadTemplate
 
 class SingleHead(BaseBEVBackbone):
     def __init__(self, model_cfg, input_channels, num_class, num_anchors_per_location, code_size, rpn_head_cfg=None,
-                 head_label_indices=None, separate_reg_config=None):
+                 head_label_indices=None, separate_reg_config=None, **kwargs):
         super().__init__(rpn_head_cfg, input_channels)
 
         self.num_anchors_per_location = num_anchors_per_location

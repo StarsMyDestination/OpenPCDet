@@ -44,14 +44,14 @@ class RPTransformation(object):
     '''
 
     def __init__(self,
-                 h_fov=(-180, 180), h_res=0.02,
-                 v_fov=(-10, 30), v_res=1.2,  # if use_ringID, these two args have no effect
+                 h_fov=(-180, 180), width=2048,
+                 v_fov=(-10, 30), height=32,  # if use_ringID, these two args have no effect
                  use_ringID=False, ringID_idx=-1,
                  **kwargs):
         self.h_fov = h_fov
-        self.h_res = h_res
+        self.width = width
         self.v_fov = v_fov
-        self.v_res = v_res
+        self.height = height
         self.use_ringID = use_ringID
         self.ringID_idx = ringID_idx
 
@@ -60,9 +60,7 @@ class RPTransformation(object):
         if ang_format == 'deg':
             factor = 180.0 / np.pi
             self.h_fov = [x / factor for x in list(self.h_fov)]
-            self.h_res /= factor
             self.v_fov = [x / factor for x in list(self.v_fov)]
-            self.v_res /= factor
 
         self.use_xyz = kwargs.get('use_xyz', True)
 
@@ -98,7 +96,7 @@ class RPTransformation(object):
 
         return SphereProjection.rThetaPhi_to_xyz(rThetaPhi)  # Nx3
 
-    def points_to_rvImage(self, points, ):
+    def points_to_rvImage(self, points):
         xyz = points[:, 0:3]
         uv_normed, rThetaPhi = self.xyz_to_uvNormed(xyz, return_more=True)
 
@@ -113,8 +111,8 @@ class RPTransformation(object):
         uv_normed = uv_normed[mask]
         rThetaPhi = rThetaPhi[mask]
 
-        w = int((self.h_fov[1] - self.h_fov[0]) / self.h_res)
-        h = max(points[:, self.ringID_idx]) if self.use_ringID else int((self.v_fov[1] - self.v_fov[0]) / self.v_res)
+        w = self.width
+        h = max(points[:, self.ringID_idx]) if self.use_ringID else self.height
 
         u = (uv_normed[:, 0] * w).long()
 
@@ -165,9 +163,9 @@ class BasicRangeProjection(nn.Module):
 
         proj_cfg = {
             'h_fov': cfg.H_FOV,
-            'h_res': cfg.H_RES,
+            'width': cfg.WIDTH,
             'v_fov': cfg.V_FOV,
-            'v_res': cfg.V_RES,
+            'height': cfg.HEIGHT,
             'use_ringID': self.use_ringID,
             'ringID_idx': cfg.RINGID_IDX,
             'ang_format': cfg.get('ANG_FORMAT', 'deg'),
