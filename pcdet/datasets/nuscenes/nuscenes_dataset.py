@@ -79,7 +79,7 @@ class NuScenesDataset(DatasetTemplate):
             return points[mask]
 
         lidar_path = self.root_path / sweep_info['lidar_path']
-        points_sweep = np.fromfile(str(lidar_path), dtype=np.float32, count=-1).reshape([-1, 5])[:, :4]
+        points_sweep = np.fromfile(str(lidar_path), dtype=np.float32, count=-1).reshape([-1, 5])
         points_sweep = remove_ego_points(points_sweep).T
         if sweep_info['transform_matrix'] is not None:
             num_points = points_sweep.shape[1]

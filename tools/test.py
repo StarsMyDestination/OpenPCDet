@@ -44,7 +44,7 @@ def parse_config():
     if args.extra_tag == 'debug':
         ## nuScenes
         args.cfg_file = 'cfgs/nuscenes_models/centernet_rv.yaml'
-        args.ckpt = '../output/nuscenes_models/centernet_rv/baseline/ckpt/checkpoint_epoch_1.pth'
+        args.ckpt = '../output/nuscenes_models/centernet_rv/baseline_ep20_obsAng_hup4/ckpt/checkpoint_epoch_20.pth'
 
         args.batch_size = 1
         args.workers = 0

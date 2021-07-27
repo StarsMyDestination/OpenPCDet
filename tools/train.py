@@ -57,6 +57,7 @@ def parse_config():
         # args.cfg_file = 'cfgs/nuscenes_models/cbgs_second_multihead.yaml'
         # args.cfg_file = 'cfgs/nuscenes_models/cbgs_pp_multihead.yaml'
         args.cfg_file = 'cfgs/nuscenes_models/centernet_rv.yaml'
+        args.pretrained_model = '../output/nuscenes_models/centernet_rv/baseline_ep20_obsAng/ckpt/checkpoint_epoch_20.pth'
 
         ## waymo # TODO under_test (no data)
         # args.cfg_file = 'cfgs/waymo_models/second.yaml'
@@ -69,7 +70,7 @@ def parse_config():
         args.fix_random_seed = True
         # torch.backends.cudnn.benchmark = True
 
-        os.environ['CUDA_LAUNCH_BLOCKING'] = '1' # used to debug cuda device trigger error.
+        os.environ['CUDA_LAUNCH_BLOCKING'] = '1'  # used to debug cuda device trigger error.
 
     ## END
 

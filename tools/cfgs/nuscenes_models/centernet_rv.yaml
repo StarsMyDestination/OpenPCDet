@@ -70,12 +70,12 @@ MODEL:
 
         H_FOV: [-180, 180] # horizontal field of view, deg. clockwise, forward is 0 degree
 #        H_RES: 0.2 # deg, horizontal resolution
-        WIDTH: 2048 # range image width
+        WIDTH: 1024 # range image width
         V_FOV: [-10, 30] # vertical field of view, deg. clockwise, horizon is 0 degree # 向上10度，向下30度
 #        V_RES: 1.25 # deg. vertical resolution
         HEIGHT: 32 # range image height
 
-        H_UPSAMPLE_RATIO: 4 # 32->128
+        H_UPSAMPLE_RATIO: 2 # 32->64
 
         TRAIN_CFG:
             FILTER_GT_BOXES: True

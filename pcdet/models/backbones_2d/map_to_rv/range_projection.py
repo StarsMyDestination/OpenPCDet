@@ -1,8 +1,9 @@
 import numpy as np
-from functools import partial
+# from functools import partial
 
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 from ....utils.box_utils import boxes_to_corners_3d
 
@@ -47,6 +48,7 @@ class RPTransformation(object):
                  h_fov=(-180, 180), width=2048,
                  v_fov=(-10, 30), height=32,  # if use_ringID, these two args have no effect
                  use_ringID=False, ringID_idx=-1,
+                 h_upsample_ratio=1,
                  **kwargs):
         self.h_fov = h_fov
         self.width = width
@@ -54,6 +56,7 @@ class RPTransformation(object):
         self.height = height
         self.use_ringID = use_ringID
         self.ringID_idx = ringID_idx
+        self.h_upsample_ratio = h_upsample_ratio
 
         ang_format = kwargs.get('ang_format', 'deg')  # 'deg' or 'rad'
         assert ang_format in ['deg', 'rad'], f'invalid ang_format: {ang_format}'
@@ -136,7 +139,13 @@ class RPTransformation(object):
 
         rv_image[v, u] = features
 
-        return rv_image.permute(2, 0, 1).contiguous()
+        rv_image = rv_image.permute(2, 0, 1).unsqueeze(0).contiguous()  # 1CHW
+
+        if self.h_upsample_ratio != 1:
+            dst_size = (int(h * self.h_upsample_ratio), w)
+            rv_image = F.interpolate(rv_image, dst_size, mode='bilinear')
+
+        return rv_image
 
 
 class BasicRangeProjection(nn.Module):
@@ -170,6 +179,7 @@ class BasicRangeProjection(nn.Module):
             'ringID_idx': cfg.RINGID_IDX,
             'ang_format': cfg.get('ANG_FORMAT', 'deg'),
             'use_xyz': self.use_xyz,
+            'h_upsample_ratio': cfg.get('H_UPSAMPLE_RATIO', 1),
         }
 
         self.rp_trans_api = RPTransformation(**proj_cfg)
@@ -195,7 +205,7 @@ class BasicRangeProjection(nn.Module):
         rv_images = []
         for bs_cnt in range(batch_size):
             one_point = points[bs_idx == bs_cnt]
-            rv_image = self.rp_trans_api.points_to_rvImage(one_point).unsqueeze(0)
+            rv_image = self.rp_trans_api.points_to_rvImage(one_point)  # 1CHW
             rv_images.append(rv_image)
         rv_images = torch.cat(rv_images, dim=0)  # NCHW
 

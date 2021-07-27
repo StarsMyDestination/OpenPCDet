@@ -19,7 +19,7 @@ python -m pcdet.datasets.kitti.kitti_dataset create_kitti_infos tools/cfgs/datas
 python train.py \
 --cfg_file cfgs/nuscenes_models/centernet_rv.yaml \
 --batch_size 1 --epochs 20 --workers 0 \
---extra_tag baseline_ep20_obsAng
+--extra_tag baseline_ep20_obsAng_hup2_w1024
 
 
 
