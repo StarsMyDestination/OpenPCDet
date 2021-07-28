@@ -16,4 +16,6 @@ venv/
 output/
 third_party/
 version.py
-notebook/
+#notebook/
+.ipynb_checkpoints
+

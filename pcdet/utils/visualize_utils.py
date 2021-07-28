@@ -230,3 +230,30 @@ def draw_corners3d(corners3d, fig, color=(1, 1, 1), line_width=2, cls=None, tag=
                     line_width=line_width, figure=fig)
 
     return fig
+
+
+##================ 2D ==========================#
+import cv2
+
+
+def draw_boxes_2d(image, boxes, color=None, format='Corner', thickness=2):
+    '''
+    :param image:
+    :param boxes: Nx4
+    :param color:
+    :param format: boxes format, CHW: cx, cy, h, w; Corner: xmin, ymin, xmax, ymax
+    :return:
+    '''
+    assert format in ['CHW', 'Corner'], format
+    if format == 'CHW':
+        xminymin = boxes[:, 0:2] - boxes[:, 2:4] / 2.0
+        xmaxymax = boxes[:, 0:2] + boxes[:, 2:4] / 2.0
+        boxes = np.hstack((xminymin, xmaxymax))
+
+    if color is None:
+        color = (0, 255, 0)
+    for box in boxes:
+        cv2.rectangle(image, (int(box[0]), int(box[1])),
+                      (int(box[2]), int(box[3])), color, thickness)
+
+    return image

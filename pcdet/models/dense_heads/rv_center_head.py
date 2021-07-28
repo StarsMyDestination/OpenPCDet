@@ -8,6 +8,23 @@ from ...utils.gaussian_target import (gaussian_radius, gen_gaussian_target,
                                       get_local_maximum, get_topk_from_heatmap,
                                       transpose_and_gather_feat)
 
+# for vis
+import numpy as np
+import cv2
+import cmapy
+from ...utils.visualize_utils import draw_boxes_2d
+
+
+def _norm_0_255(image):
+    shape = image.shape
+    image = image.reshape(-1, shape[-1])
+    mask = (image != 0)
+    c_min = image[mask].min(0)
+    c_max = image.max(0)
+    image = (image - c_min) / (c_max - c_min) * 255.0
+    image *= mask
+    return image.reshape(*shape)
+
 
 class RVCenterNetHead(nn.Module):
     """Objects as Points Head. CenterHead use center_point to indicate object's
@@ -96,6 +113,9 @@ class RVCenterNetHead(nn.Module):
         self.forward_ret_dict['offset_preds'] = offset_preds  # list
         self.forward_ret_dict['depth_preds'] = depth_preds  # list
         self.forward_ret_dict['dir_preds'] = dir_preds  # list
+
+        # for vis
+        self.forward_ret_dict['rv_image'] = data_dict['spatial_features']
 
         if self.training:
             self.forward_ret_dict['gt_boxes'] = data_dict['gt_boxes']
@@ -209,6 +229,39 @@ class RVCenterNetHead(nn.Module):
             'loss_depth': loss_depth,
             'loss_dir': loss_dir,
         })
+
+        ### for vis
+        tb_image_dict = {}
+        # range image
+        rv_image = self.forward_ret_dict['rv_image'][0].detach().permute(1, 2, 0).cpu().numpy()
+        depth = rv_image[:, :, 3:4]
+        depth[depth > 0] = depth[depth > 0] ** (1 / 4)
+        depth = _norm_0_255(depth).astype(np.uint8)
+        depth_colored = cv2.applyColorMap(depth, cmapy.cmap('viridis'))
+        rv_h, rv_w = depth_colored.shape[0:2]
+        # draw line
+        ws = [int(rv_w * x) for x in [0.25, 0.5, 0.75]]
+        depth_colored[:, ws, :] = 255
+        # draw box2d
+        boxes2d = gt_boxes_rv[0][:n_valid_gt[0]].detach().cpu().numpy()
+        boxes2d[:, [0, 2]] *= rv_w
+        boxes2d[:, [1, 3]] *= rv_h
+        depth_colored = draw_boxes_2d(depth_colored, boxes2d, color=(255, 255, 255),
+                                      format='CHW')
+        depth_colored = depth_colored[:, :, ::-1]  # to rgb
+        # tb_image_dict['rv_image'] = depth_colored
+        # heatmap
+        vis_heatmap = center_heatmap_target[0, :3, ...].detach().permute(1, 2, 0).cpu().numpy()
+        vis_heatmap *= 255.0
+        vis_heatmap = vis_heatmap.astype(np.uint8)
+        vis_heatmap = cv2.resize(vis_heatmap, (rv_w, rv_h))
+
+        cat_image = np.vstack([depth_colored, vis_heatmap])
+
+        # tb_image_dict['gt_heatmap'] = vis_heatmap
+        tb_image_dict['rv_gtHeatmap'] = cat_image
+        tb_dict['image_dict'] = tb_image_dict
+
         return loss, tb_dict
 
     def get_targets(self, gt_boxes, gt_boxes_rv, n_valid_gt, feat_shape):
@@ -253,7 +306,7 @@ class RVCenterNetHead(nn.Module):
             gt_box, gt_label = gt_box[:, 0:-1], gt_box[:, -1].long()
             gt_box_rv = gt_boxes_rv[batch_id][:n_valid_gt[batch_id]]
 
-            gt_centers = gt_box_rv[:, 0:2]
+            gt_centers = gt_box_rv[:, 0:2].clone()
             gt_centers[:, 0] *= feat_w
             gt_centers[:, 1] *= feat_h
 

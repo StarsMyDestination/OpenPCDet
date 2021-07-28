@@ -1,0 +1,129 @@
+CLASS_NAMES: ['Car', 'Pedestrian', 'Cyclist']
+
+DATA_CONFIG:
+    _BASE_CONFIG_: cfgs/dataset_configs/kitti_dataset.yaml
+
+    SAMPLED_INTERVAL: {
+        'train': 10,
+        'test': 10
+    }
+
+    DATA_AUGMENTOR:
+        DISABLE_AUG_LIST: ['placeholder', 'gt_sampling', 'random_world_rotation']
+        AUG_CONFIG_LIST:
+            - NAME: gt_sampling
+                #          USE_ROAD_PLANE: True
+              USE_ROAD_PLANE: False
+              DB_INFO_PATH:
+                  - kitti_dbinfos_train.pkl
+              PREPARE: {
+                  filter_by_min_points: ['Car:5', 'Pedestrian:5', 'Cyclist:5'],
+                  filter_by_difficulty: [-1],
+              }
+
+              SAMPLE_GROUPS: ['Car:20','Pedestrian:15', 'Cyclist:15']
+              NUM_POINT_FEATURES: 4
+              DATABASE_WITH_FAKELIDAR: False
+              REMOVE_EXTRA_WIDTH: [0.0, 0.0, 0.0]
+              LIMIT_WHOLE_SCENE: True
+
+            - NAME: random_world_flip
+              ALONG_AXIS_LIST: ['x']
+
+            - NAME: random_world_rotation
+              WORLD_ROT_ANGLE: [-0.78539816, 0.78539816]
+
+            - NAME: random_world_scaling
+              WORLD_SCALE_RANGE: [0.95, 1.05]
+
+
+MODEL:
+    NAME: RVCenterNet
+
+    MAP_TO_RV:
+        NAME: BasicRangeProjection
+        USE_RINGID: False
+        RINGID_IDX: -1 #[..., ringID]
+
+        USE_XYZ: True
+
+        H_FOV: [-41, 41] # horizontal field of view, deg. clockwise, forward is 0 degree
+        WIDTH: 512 # range image width # res: 0.16
+        V_FOV: [-5, 15] # vertical field of view, deg. clockwise, horizon is 0 degree # 向上10度，向下30度
+        HEIGHT: 64 # range image height # res: 0.31
+
+        H_UPSAMPLE_RATIO: 2 # 64->128
+
+        TRAIN_CFG:
+            FILTER_GT_BOXES: True
+            USE_OBSERVATION_ANGLE: True
+
+
+    BACKBONE_2D_RANGEVIEW:
+        NAME: ResNet
+        DEPTH: 18
+
+    NECK:
+        NAME: CTResNetNeck
+        NUM_DECONV_FILTERS: [256, 128, 64]
+        NUM_DECONV_KERNELS: [4, 4, 4]
+        USE_DCN: False # TODO DCN have keyerror due to mmcv import bug
+
+
+    DENSE_HEAD:
+        NAME: RVCenterNetHead
+        CLASS_AGNOSTIC: False
+
+        FEAT_CHANNEL: 64
+
+
+
+        LOSS_CONFIG:
+            LOSS_WEIGHTS: {
+                'heatmap_cls_weight': 1.0,
+                'lwh_reg_weight': 0.1,
+                'offset_reg_weight': 1.0,
+                'depth_reg_weight': 1.0,
+                'dir_reg_weight': 1.0,
+            }
+
+        TEST_CFG:
+            TOP_K: 100
+            LOCAL_MAXIMUM_KERNEL: 3
+
+
+    POST_PROCESSING:
+        RECALL_THRESH_LIST: [0.3, 0.5, 0.7]
+        SCORE_THRESH: 0.1
+
+        EVAL_METRIC: kitti
+
+        USE_NMS: True
+        NMS_CONFIG:
+            MULTI_CLASSES_NMS: True
+            NMS_TYPE: nms_gpu
+            NMS_THRESH: 0.2
+            NMS_PRE_MAXSIZE: 1000
+            NMS_POST_MAXSIZE: 83
+
+
+OPTIMIZATION:
+    BATCH_SIZE_PER_GPU: 4
+    NUM_EPOCHS: 20
+
+    OPTIMIZER: adam_onecycle
+    LR: 0.001
+    WEIGHT_DECAY: 0.01
+    MOMENTUM: 0.9
+
+    MOMS: [0.95, 0.85]
+    PCT_START: 0.4
+    DIV_FACTOR: 10
+    DECAY_STEP_LIST: [35, 45]
+    LR_DECAY: 0.1
+    LR_CLIP: 0.0000001
+
+    LR_WARMUP: False
+    WARMUP_EPOCH: 1
+
+    GRAD_NORM_CLIP: 10

@@ -45,12 +45,12 @@ def _draw_quarter_line(image):
 def test_points_to_rvImage():
     ### nuScenes
     # data_folder = r'/mnt/nas/DATA/nuScenes/nuScenes/samples/LIDAR_TOP'
-    data_folder = r'/mnt/nas/DATA/nuScenes/nuScenes/TMP'
-    lidar_channels = 5
+    # data_folder = r'/mnt/nas/DATA/nuScenes/nuScenes/TMP'
+    # lidar_channels = 5
 
     ### KITTI
-    # data_folder = r'/mnt/nas/DATA/KITTI/KITTI/training/velodyne'
-    # lidar_channels = 4
+    data_folder = r'/mnt/nas/DATA/KITTI/KITTI/training/velodyne'
+    lidar_channels = 4
 
     data_file_list = sorted(glob.glob(str(data_folder + '/*bin')))
     # index = np.random.choice(len(data_file_list), 1)[0]
@@ -76,14 +76,14 @@ def test_points_to_rvImage():
     cfg.H_UPSAMPLE_RATIO = 1
 
     ### KITTI
-    # cfg.USE_RINGID = False
-    # cfg.RINGID_IDX = -1
-    # cfg.USE_XYZ = True
-    # cfg.H_FOV = [-45, 45]
-    # cfg.WIDTH = 512
-    # cfg.V_FOV = [-6.8, 20]
-    # cfg.HEIGHT = 64
-    # cfg.H_UPSAMPLE_RATIO = 1
+    cfg.USE_RINGID = False
+    cfg.RINGID_IDX = -1
+    cfg.USE_XYZ = True
+    cfg.H_FOV = [-41, 41]
+    cfg.WIDTH = 512
+    cfg.V_FOV = [-5, 15]
+    cfg.HEIGHT = 64
+    cfg.H_UPSAMPLE_RATIO = 1
 
     cfg.TRAIN_CFG = EasyDict()
     cfg.TRAIN_CFG.FILTER_GT_BOXES = True
@@ -102,11 +102,11 @@ def test_points_to_rvImage():
     depth_colored = cv2.applyColorMap(depth, cmapy.cmap('viridis'))
     # draw line
     depth_colored = _draw_quarter_line(depth_colored)
-    cv2.imwrite('nus_rv32.png', depth_colored)
-    # cv2.imwrite('kitti_rv64-2.png', depth_colored)
+    # cv2.imwrite('nus_rv32.png', depth_colored)
+    cv2.imwrite('kitti_rv64.png', depth_colored)
 
-    # V.draw_scenes(points[:, 1:])
-    # mlab.show(stop=True)
+    V.draw_scenes(points[:, 1:])
+    mlab.show(stop=True)
 
 
 if __name__ == '__main__':
