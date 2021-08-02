@@ -48,8 +48,8 @@ class RPTransformation(object):
                  h_fov=(-180, 180), width=2048,
                  v_fov=(-10, 30), height=32,  # if use_ringID, these two args have no effect
                  use_ringID=False, ringID_idx=-1,
-                 h_upsample_ratio=1,
-                 **kwargs):
+                 h_upsample_ratio=1, use_xyz=True,
+                 ang_format='deg', norm_cfg=dict(NORM_INPUT=False)):
         self.h_fov = h_fov
         self.width = width
         self.v_fov = v_fov
@@ -58,14 +58,21 @@ class RPTransformation(object):
         self.ringID_idx = ringID_idx
         self.h_upsample_ratio = h_upsample_ratio
 
-        ang_format = kwargs.get('ang_format', 'deg')  # 'deg' or 'rad'
         assert ang_format in ['deg', 'rad'], f'invalid ang_format: {ang_format}'
         if ang_format == 'deg':
             factor = 180.0 / np.pi
             self.h_fov = [x / factor for x in list(self.h_fov)]
             self.v_fov = [x / factor for x in list(self.v_fov)]
 
-        self.use_xyz = kwargs.get('use_xyz', True)
+        self.use_xyz = use_xyz
+
+        self.norm_input = norm_cfg['NORM_INPUT']
+        if self.norm_input:
+            assert 'MEAN' in norm_cfg and 'STD' in norm_cfg
+            self.norm_mean = torch.tensor(norm_cfg['MEAN'], dtype=torch.float32).cuda()
+            self.norm_std = torch.tensor(norm_cfg['STD'], dtype=torch.float32).cuda()
+        else:
+            self.norm_mean, self.norm_std = None, None
 
     def xyz_to_uvNormed(self, xyz, return_more=False):
         '''
@@ -133,6 +140,12 @@ class RPTransformation(object):
         else:
             features = torch.cat([rThetaPhi, features], dim=1)  # Nx(3+C)
 
+        if self.norm_input:
+            if self.use_xyz:
+                features[:, 0:7] = (features[:, 0:7] - self.norm_mean) / self.norm_std  # xyz rThetaPhi intensity
+            else:
+                features[:, 0:4] = (features[:, 0:4] - self.norm_mean[3:]) / self.norm_std[3:]  # rThetaPhi intensity
+
         # init range_image
         channels = features.shape[1]
         rv_image = points.new_zeros((h, w, channels))
@@ -180,6 +193,7 @@ class BasicRangeProjection(nn.Module):
             'ang_format': cfg.get('ANG_FORMAT', 'deg'),
             'use_xyz': self.use_xyz,
             'h_upsample_ratio': cfg.get('H_UPSAMPLE_RATIO', 1),
+            'norm_cfg': cfg.get('NORM_CFG', dict(NORM_INPUT=False)),
         }
 
         self.rp_trans_api = RPTransformation(**proj_cfg)

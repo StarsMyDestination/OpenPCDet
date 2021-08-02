@@ -43,8 +43,13 @@ def parse_config():
     ## TODO DEBUG
     if args.extra_tag == 'debug':
         ## nuScenes
-        args.cfg_file = 'cfgs/nuscenes_models/centernet_rv.yaml'
-        args.ckpt = '../output/nuscenes_models/centernet_rv/baseline_ep20_obsAng_hup4/ckpt/checkpoint_epoch_20.pth'
+        # args.cfg_file = 'cfgs/nuscenes_models/centernet_rv.yaml'
+        # args.ckpt = '../output/nuscenes_models/centernet_rv/baseline_ep20_obsAng_hup4/ckpt/checkpoint_epoch_20.pth'
+
+        ## kitti
+        args.cfg_file = 'cfgs/kitti_models/centernet_rv.yaml'
+        args.ckpt = '../output/kitti_models/centernet_rv/bs4_ep36/ckpt/checkpoint_epoch_36.pth'
+
 
         args.batch_size = 1
         args.workers = 0

@@ -37,4 +37,12 @@ python train.py \
 --batch_size 8 --epochs 20 --workers 0 \
 --extra_tag bs8_ep20
 
+python train.py \
+--cfg_file cfgs/kitti_models/centernet_rv.yaml \
+--batch_size 4 --epochs 36 --workers 0 \
+--extra_tag bs4_ep36
 
+python train.py \
+--cfg_file cfgs/kitti_models/centernet_rv.yaml \
+--batch_size 4 --epochs 36 --workers 0 \
+--extra_tag bs4_ep36_normInput

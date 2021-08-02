@@ -58,6 +58,12 @@ MODEL:
             FILTER_GT_BOXES: True
             USE_OBSERVATION_ANGLE: True
 
+        NORM_CFG:
+            NORM_INPUT: True
+            MEAN: [16.355762,  0.206397, -1.059977, 17.774779,  0.011399,  0.096278,
+                   0.245271] # xyz rThetaPhi intensity
+            STD: [11.729292,  6.380969,  0.77858 , 12.556925,  0.31467 ,  0.070107,
+                  0.15448] # xyz rThetaPhi intensity
 
     BACKBONE_2D_RANGEVIEW:
         NAME: ResNet
