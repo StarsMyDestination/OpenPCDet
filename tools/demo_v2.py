@@ -30,7 +30,7 @@ def parse_config():
 
         ## KITTI
         args.cfg_file = 'cfgs/kitti_models/centernet_rv.yaml'
-        args.ckpt = '../output/kitti_models/centernet_rv/bs8_ep20/ckpt/checkpoint_epoch_20.pth'
+        args.ckpt = '../output/kitti_models/centernet_rv/bs4_ep36_normInput/ckpt/checkpoint_epoch_36.pth'
 
 
     ## END

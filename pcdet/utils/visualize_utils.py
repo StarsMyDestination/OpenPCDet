@@ -241,11 +241,11 @@ def draw_boxes_2d(image, boxes, color=None, format='Corner', thickness=2):
     :param image:
     :param boxes: Nx4
     :param color:
-    :param format: boxes format, CHW: cx, cy, h, w; Corner: xmin, ymin, xmax, ymax
+    :param format: boxes format, CXCYWH: cx, cy, w, h; Corner: xmin, ymin, xmax, ymax
     :return:
     '''
-    assert format in ['CHW', 'Corner'], format
-    if format == 'CHW':
+    assert format in ['CXCYWH', 'Corner'], format
+    if format == 'CXCYWH':
         xminymin = boxes[:, 0:2] - boxes[:, 2:4] / 2.0
         xmaxymax = boxes[:, 0:2] + boxes[:, 2:4] / 2.0
         boxes = np.hstack((xminymin, xmaxymax))

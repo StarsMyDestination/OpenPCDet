@@ -95,8 +95,8 @@ def test_points_to_rvImage():
     ret = rp(dict(points=points, batch_size=1))
 
     # draw depth image
-    rv_image = ret['spatial_features'][0].permute(1, 2, 0).numpy()  # xyz, rThetaPhi, ...
-    depth = rv_image[:, :, 3:4]
+    rv_image = ret['spatial_features'][0].permute(1, 2, 0).numpy()  # rThetaPhi, xyz, ...
+    depth = rv_image[:, :, 0:1]
     depth[depth > 0] = depth[depth > 0] ** (1 / 4)
     depth = _norm_0_255(depth).astype(np.uint8)
     depth_colored = cv2.applyColorMap(depth, cmapy.cmap('viridis'))

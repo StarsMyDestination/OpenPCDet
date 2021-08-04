@@ -48,7 +48,7 @@ class RPTransformation(object):
                  h_fov=(-180, 180), width=2048,
                  v_fov=(-10, 30), height=32,  # if use_ringID, these two args have no effect
                  use_ringID=False, ringID_idx=-1,
-                 h_upsample_ratio=1, use_xyz=True,
+                 h_upsample_ratio=1, use_xyz=True, use_angle=True,
                  ang_format='deg', norm_cfg=dict(NORM_INPUT=False)):
         self.h_fov = h_fov
         self.width = width
@@ -65,6 +65,7 @@ class RPTransformation(object):
             self.v_fov = [x / factor for x in list(self.v_fov)]
 
         self.use_xyz = use_xyz
+        self.use_angle = use_angle
 
         self.norm_input = norm_cfg['NORM_INPUT']
         if self.norm_input:
@@ -122,7 +123,9 @@ class RPTransformation(object):
         rThetaPhi = rThetaPhi[mask]
 
         w = self.width
-        h = max(points[:, self.ringID_idx]) if self.use_ringID else self.height
+        h = self.height
+        # if self.use_ringID:
+        #     assert max(points[:, self.ringID_idx]) < h
 
         u = (uv_normed[:, 0] * w).long()
 
@@ -131,20 +134,36 @@ class RPTransformation(object):
             v = (uv_normed[:, 1] * h).long()
         else:
             ringID = points[:, self.ringID_idx]
-            features = points[:, list(range(points.shape[1])).pop(self.ringID_idx)[3:]]  # remove ringID in features
+            fea_chan_list = list(range(points.shape[1]))
+            fea_chan_list.pop(self.ringID_idx)
+            features = points[:, fea_chan_list[3:]]  # remove ringID in features
             v = ringID.long()
 
-        # gather features
-        if self.use_xyz:
-            features = torch.cat([points[:, 0:3], rThetaPhi, features], dim=1)  # Nx(6+C)
-        else:
-            features = torch.cat([rThetaPhi, features], dim=1)  # Nx(3+C)
+        # get pxpy
+        px = (uv_normed[:, 0] - 0.5) * 2  # [-1, 1]
+        py = (v / h - 0.5) * 2  # [-1, 1]
+        pxpy = torch.stack([px, py], dim=-1)
 
-        if self.norm_input:
-            if self.use_xyz:
-                features[:, 0:7] = (features[:, 0:7] - self.norm_mean) / self.norm_std  # xyz rThetaPhi intensity
-            else:
-                features[:, 0:4] = (features[:, 0:4] - self.norm_mean[3:]) / self.norm_std[3:]  # rThetaPhi intensity
+        # gather features
+        if self.use_xyz and self.use_angle:
+            features = torch.cat([rThetaPhi, points[:, 0:3], features], dim=1)  # Nx(6+C)
+            if self.norm_input:
+                features[:, 0:7] = (features[:, 0:7] - self.norm_mean) / self.norm_std  # rThetaPhi xyz intensity
+        elif self.use_xyz and (not self.use_angle):
+            features = torch.cat([rThetaPhi[:, 0:1], points[:, 0:3], features], dim=1)  # Nx(4+C)
+            if self.norm_input:
+                features[:, 0:5] = (features[:, 0:5] - self.norm_mean[[0, 3, 4, 5, 6]]) / \
+                                   self.norm_std[[0, 3, 4, 5, 6]]  # r xyz intensity
+        elif (not self.use_xyz) and self.use_angle:
+            features = torch.cat([rThetaPhi, features], dim=1)  # Nx(3+C)
+            if self.norm_input:
+                features[:, 0:4] = (features[:, 0:4] - self.norm_mean[[0, 1, 2, 6]]) / \
+                                   self.norm_std[[0, 1, 2, 6]]  # rThetaPhi intensity
+        elif (not self.use_xyz) and (not self.use_angle):
+            features = torch.cat([rThetaPhi[:, 0:1], features], dim=1)  # Nx(1+C)
+            if self.norm_input:
+                features[:, 0:2] = (features[:, 0:2] - self.norm_mean[[0, 6]]) / \
+                                   self.norm_std[[0, 6]]  # r intensity
 
         # init range_image
         channels = features.shape[1]
@@ -158,7 +177,7 @@ class RPTransformation(object):
             dst_size = (int(h * self.h_upsample_ratio), w)
             rv_image = F.interpolate(rv_image, dst_size, mode='bilinear')
 
-        return rv_image
+        return rv_image, pxpy
 
 
 class BasicRangeProjection(nn.Module):
@@ -176,12 +195,16 @@ class BasicRangeProjection(nn.Module):
 
         self.use_ringID = cfg.USE_RINGID
         self.use_xyz = cfg.get('USE_XYZ', True)
+        self.use_angle = cfg.get('USE_ANGLE', True)  # use theta, phi as features
 
         if self.use_ringID:
             self.num_rv_features -= 1  # remove rangID in features
 
         if self.use_xyz:
             self.num_rv_features += 3  # add xyz in features
+
+        if not self.use_angle:
+            self.num_rv_features -= 2
 
         proj_cfg = {
             'h_fov': cfg.H_FOV,
@@ -192,6 +215,7 @@ class BasicRangeProjection(nn.Module):
             'ringID_idx': cfg.RINGID_IDX,
             'ang_format': cfg.get('ANG_FORMAT', 'deg'),
             'use_xyz': self.use_xyz,
+            'use_angle': self.use_angle,
             'h_upsample_ratio': cfg.get('H_UPSAMPLE_RATIO', 1),
             'norm_cfg': cfg.get('NORM_CFG', dict(NORM_INPUT=False)),
         }
@@ -219,13 +243,14 @@ class BasicRangeProjection(nn.Module):
         rv_images = []
         for bs_cnt in range(batch_size):
             one_point = points[bs_idx == bs_cnt]
-            rv_image = self.rp_trans_api.points_to_rvImage(one_point)  # 1CHW
+            rv_image, pxpy = self.rp_trans_api.points_to_rvImage(one_point)  # 1CHW
             rv_images.append(rv_image)
         rv_images = torch.cat(rv_images, dim=0)  # NCHW
 
         batch_dict.update({
             'spatial_features': rv_images,
-            'rv_img_shape': rv_images.shape[2:4]
+            'rv_img_shape': rv_images.shape[2:4],
+            'pxpy': pxpy,
         })
 
         if self.training:

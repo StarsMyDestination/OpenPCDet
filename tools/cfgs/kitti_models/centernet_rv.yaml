@@ -8,6 +8,8 @@ DATA_CONFIG:
         'test': 10
     }
 
+    FOV_POINTS_ONLY: False
+
     DATA_AUGMENTOR:
         DISABLE_AUG_LIST: ['placeholder', 'gt_sampling', 'random_world_rotation']
         AUG_CONFIG_LIST:
@@ -46,10 +48,11 @@ MODEL:
         RINGID_IDX: -1 #[..., ringID]
 
         USE_XYZ: True
+        USE_ANGLE: True
 
         H_FOV: [-41, 41] # horizontal field of view, deg. clockwise, forward is 0 degree
         WIDTH: 512 # range image width # res: 0.16
-        V_FOV: [-5, 15] # vertical field of view, deg. clockwise, horizon is 0 degree # 向上10度，向下30度
+        V_FOV: [-3, 25] # vertical field of view, deg. clockwise, horizon is 0 degree. up 3 deg, down 25 deg.
         HEIGHT: 64 # range image height # res: 0.31
 
         H_UPSAMPLE_RATIO: 2 # 64->128
@@ -60,10 +63,10 @@ MODEL:
 
         NORM_CFG:
             NORM_INPUT: True
-            MEAN: [16.355762,  0.206397, -1.059977, 17.774779,  0.011399,  0.096278,
-                   0.245271] # xyz rThetaPhi intensity
-            STD: [11.729292,  6.380969,  0.77858 , 12.556925,  0.31467 ,  0.070107,
-                  0.15448] # xyz rThetaPhi intensity
+            MEAN: [17.774779,  0.011399,  0.096278, 16.355762,  0.206397, -1.059977,
+                   0.245271] # rThetaPhi xyz intensity
+            STD: [12.556925,  0.31467 ,  0.070107, 11.729292,  6.380969,  0.77858,
+                  0.15448] # rThetaPhi xyz intensity
 
     BACKBONE_2D_RANGEVIEW:
         NAME: ResNet
@@ -82,7 +85,8 @@ MODEL:
 
         FEAT_CHANNEL: 64
 
-
+        DEPTH_ENCODING: log # ['norm', 'log', 'sigmoid']
+        MAX_DEPTH: 80
 
         LOSS_CONFIG:
             LOSS_WEIGHTS: {
@@ -104,7 +108,7 @@ MODEL:
 
         EVAL_METRIC: kitti
 
-        USE_NMS: True
+        USE_NMS: False
         NMS_CONFIG:
             MULTI_CLASSES_NMS: True
             NMS_TYPE: nms_gpu

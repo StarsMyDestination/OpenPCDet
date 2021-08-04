@@ -46,3 +46,42 @@ python train.py \
 --cfg_file cfgs/kitti_models/centernet_rv.yaml \
 --batch_size 4 --epochs 36 --workers 0 \
 --extra_tag bs4_ep36_normInput
+
+# ep80
+python train.py \
+--cfg_file cfgs/kitti_models/centernet_rv.yaml \
+--batch_size 4 --epochs 80 --workers 0 \
+--extra_tag bs4_ep80_normInput
+
+# change depth encoding
+python train.py \
+--cfg_file cfgs/kitti_models/centernet_rv.yaml \
+--batch_size 4 --epochs 36 --workers 0 \
+--extra_tag bs4_ep36_normInput_depthNorm
+
+
+python train.py \
+--cfg_file cfgs/kitti_models/centernet_rv.yaml \
+--batch_size 4 --epochs 36 --workers 0 \
+--extra_tag bs4_ep36_normInput_dirAngle \
+--set MODEL.MAP_TO_RV.TRAIN_CFG.USE_OBSERVATION_ANGLE False
+
+
+python train.py \
+--cfg_file cfgs/kitti_models/centernet_rv.yaml \
+--batch_size 4 --epochs 36 --workers 0 \
+--extra_tag bs4_ep36_normInput_noXYZ \
+--set MODEL.MAP_TO_RV.USE_XYZ False
+
+python train.py \
+--cfg_file cfgs/kitti_models/centernet_rv.yaml \
+--batch_size 4 --epochs 36 --workers 0 \
+--extra_tag bs4_ep36_normInput_noXYZdirAngle \
+--set MODEL.MAP_TO_RV.TRAIN_CFG.USE_OBSERVATION_ANGLE False MODEL.MAP_TO_RV.USE_XYZ False
+
+# no xyz, no angle
+python train.py \
+--cfg_file cfgs/kitti_models/centernet_rv.yaml \
+--batch_size 4 --epochs 36 --workers 0 \
+--extra_tag bs4_ep36_normInput_noXYZ_noAngle \
+--set MODEL.MAP_TO_RV.USE_XYZ False MODEL.MAP_TO_RV.USE_ANGLE False

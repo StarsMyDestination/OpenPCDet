@@ -68,6 +68,16 @@ class KittiDataset(DatasetTemplate):
         split_dir = self.root_path / 'ImageSets' / (self.split + '.txt')
         self.sample_id_list = [x.strip() for x in open(split_dir).readlines()] if split_dir.exists() else None
 
+    def get_kitti_rows(self, points: np.array, threshold: float = -0.005) -> np.array:
+        """ Returns the row indices for unfolding one or more raw KITTI scans """
+        azimuth_flipped = -np.arctan2(points[..., 1], -points[..., 0])
+        azi_diffs = azimuth_flipped[..., 1:] - azimuth_flipped[..., :-1]
+        jump_mask = np.greater(threshold, azi_diffs)
+        ind = np.add(np.where(jump_mask), 1)
+        rows = np.zeros_like(points[..., 0])
+        rows[..., ind] += 1
+        return np.int32(np.cumsum(rows, axis=-1))
+
     def get_lidar(self, idx):
         lidar_file = self.root_split_path / 'velodyne' / ('%s.bin' % idx)
         assert lidar_file.exists()
@@ -415,6 +425,8 @@ class KittiDataset(DatasetTemplate):
 
         if "points" in get_item_list:
             points = self.get_lidar(sample_idx)
+            ringID = self.get_kitti_rows(points, )
+            points = np.concatenate([points, ringID.reshape(-1, 1)], axis=-1)
             if self.dataset_cfg.FOV_POINTS_ONLY:
                 pts_rect = calib.lidar_to_rect(points[:, 0:3])
                 fov_flag = self.get_fov_flag(pts_rect, img_shape, calib)

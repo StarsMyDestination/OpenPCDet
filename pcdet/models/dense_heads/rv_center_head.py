@@ -70,6 +70,9 @@ class RVCenterNetHead(nn.Module):
 
         self.forward_ret_dict = {}
 
+        self.depth_encoding = model_cfg.DEPTH_ENCODING
+        self.max_depth = model_cfg.MAX_DEPTH
+
     def _build_head(self, in_channel, feat_channel, out_channel):
         """Build head for each branch."""
         layer = nn.Sequential(
@@ -234,7 +237,7 @@ class RVCenterNetHead(nn.Module):
         tb_image_dict = {}
         # range image
         rv_image = self.forward_ret_dict['rv_image'][0].detach().permute(1, 2, 0).cpu().numpy()
-        depth = rv_image[:, :, 3:4]
+        depth = rv_image[:, :, 0:1]
         depth[depth > 0] = depth[depth > 0] ** (1 / 4)
         depth = _norm_0_255(depth).astype(np.uint8)
         depth_colored = cv2.applyColorMap(depth, cmapy.cmap('viridis'))
@@ -246,19 +249,31 @@ class RVCenterNetHead(nn.Module):
         boxes2d = gt_boxes_rv[0][:n_valid_gt[0]].detach().cpu().numpy()
         boxes2d[:, [0, 2]] *= rv_w
         boxes2d[:, [1, 3]] *= rv_h
-        depth_colored = draw_boxes_2d(depth_colored, boxes2d, color=(255, 255, 255),
-                                      format='CHW')
+        depth_colored = draw_boxes_2d(depth_colored, boxes2d, color=(255, 255, 255), format='CXCYWH')
         depth_colored = depth_colored[:, :, ::-1]  # to rgb
         # tb_image_dict['rv_image'] = depth_colored
         # heatmap
-        vis_heatmap = center_heatmap_target[0, :3, ...].detach().permute(1, 2, 0).cpu().numpy()
-        vis_heatmap *= 255.0
-        vis_heatmap = vis_heatmap.astype(np.uint8)
-        vis_heatmap = cv2.resize(vis_heatmap, (rv_w, rv_h))
+        font = cv2.FONT_HERSHEY_SIMPLEX
+        org = (10, 20)
+        fontScale = 1
+        color = (255, 255, 255)
 
-        cat_image = np.vstack([depth_colored, vis_heatmap])
+        vis_gt_heatmap = center_heatmap_target[0, :3, ...].detach().permute(1, 2, 0).cpu().numpy()
+        vis_gt_heatmap *= 255.0
+        vis_gt_heatmap = vis_gt_heatmap.astype(np.uint8)
+        vis_gt_heatmap = cv2.resize(vis_gt_heatmap, (rv_w, rv_h))
+        vis_gt_heatmap = cv2.putText(vis_gt_heatmap, 'gt', org, font, fontScale, color)
+        vis_gt_heatmap = np.concatenate([vis_gt_heatmap, np.ones((1, rv_w, 3), dtype=np.uint8) * 255], axis=0)
 
-        # tb_image_dict['gt_heatmap'] = vis_heatmap
+        vis_pre_heatmap = center_heatmap_pred[0, :3, ...].detach().permute(1, 2, 0).cpu().numpy()
+        vis_pre_heatmap *= 255.0
+        vis_pre_heatmap = vis_pre_heatmap.astype(np.uint8)
+        vis_pre_heatmap = cv2.resize(vis_pre_heatmap, (rv_w, rv_h))
+        vis_pre_heatmap = cv2.putText(vis_pre_heatmap, 'pre', org, font, fontScale, color)
+
+        cat_image = np.vstack([depth_colored, vis_gt_heatmap, vis_pre_heatmap])
+
+        # tb_image_dict['gt_heatmap'] = vis_gt_heatmap
         tb_image_dict['rv_gtHeatmap'] = cat_image
         tb_dict['image_dict'] = tb_image_dict
 
@@ -325,7 +340,13 @@ class RVCenterNetHead(nn.Module):
                 offset_target[batch_id, 0, cty_int, ctx_int] = ctx - ctx_int
                 offset_target[batch_id, 1, cty_int, ctx_int] = cty - cty_int
 
-                depth_target[batch_id, :, cty_int, ctx_int] = torch.log(torch.norm(gt_box[j, 0:3]) + 1)
+                if self.depth_encoding == 'log':
+                    depth_target[batch_id, :, cty_int, ctx_int] = torch.log(torch.norm(gt_box[j, 0:3]) + 1)
+                elif self.depth_encoding == 'norm':
+                    depth_target[batch_id, :, cty_int, ctx_int] = 2 * torch.norm(
+                        gt_box[j, 0:3]) / self.max_depth - 1  # (-1,1)
+                else:
+                    raise NotImplementedError
 
                 dir_target[batch_id, 0, cty_int, ctx_int] = torch.cos(gt_box[j, 6])
                 dir_target[batch_id, 1, cty_int, ctx_int] = torch.sin(gt_box[j, 6])
@@ -434,7 +455,10 @@ class RVCenterNetHead(nn.Module):
         v_normed = topk_ys / height
         uv_normed = torch.stack([u_normed, v_normed], dim=2)
 
-        depth = torch.exp(depth) - 1
+        if self.depth_encoding == 'log':
+            depth = torch.exp(depth) - 1
+        elif self.depth_encoding == 'norm':
+            depth = (depth + 1) / 2.0 * self.max_depth
         center_xyz = []
         for one_uv_normed, one_depth in zip(uv_normed, depth):
             center_xyz.append(rp_trans_api.uvNormed_to_xyz(one_uv_normed, one_depth))
