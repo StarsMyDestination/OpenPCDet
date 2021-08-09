@@ -6,6 +6,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from ....utils.box_utils import boxes_to_corners_3d
+from ....ops.rangeview import point_to_range
 
 
 class SphereProjection(object):
@@ -165,13 +166,15 @@ class RPTransformation(object):
                 features[:, 0:2] = (features[:, 0:2] - self.norm_mean[[0, 6]]) / \
                                    self.norm_std[[0, 6]]  # r intensity
 
-        # init range_image
-        channels = features.shape[1]
-        rv_image = points.new_zeros((h, w, channels))
+        # # old range_image generation, overlapped points random drop.
+        # channels = features.shape[1]
+        # rv_image = points.new_zeros((h, w, channels))
+        # rv_image[v, u] = features
+        # rv_image = rv_image.permute(2, 0, 1).unsqueeze(0).contiguous()  # 1CHW
 
-        rv_image[v, u] = features
-
-        rv_image = rv_image.permute(2, 0, 1).unsqueeze(0).contiguous()  # 1CHW
+        # new range_image generation, get meanVFE if overlapped
+        batch_pxpy = torch.cat([pxpy.new_zeros(pxpy.shape[0], 1), pxpy], dim=-1)  # Nx3
+        rv_image = point_to_range(features, batch_pxpy, (h, w))  # 1CHW
 
         if self.h_upsample_ratio != 1:
             dst_size = (int(h * self.h_upsample_ratio), w)
