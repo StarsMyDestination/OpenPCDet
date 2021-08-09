@@ -48,7 +48,8 @@ class PointHeadTemplate(nn.Module):
 
     def assign_stack_targets(self, points, gt_boxes, extend_gt_boxes=None,
                              ret_box_labels=False, ret_part_labels=False,
-                             set_ignore_flag=True, use_ball_constraint=False, central_radius=2.0):
+                             set_ignore_flag=True, use_ball_constraint=False, central_radius=2.0,
+                             azimuth_rotation_matrix=None):
         """
         Args:
             points: (N1 + N2 + N3 + ..., 4) [bs_idx, x, y, z]
@@ -59,6 +60,8 @@ class PointHeadTemplate(nn.Module):
             set_ignore_flag:
             use_ball_constraint:
             central_radius:
+            azimuth_invariant: used for rv-backbone
+            azimuth_rotation_matrix: Nx10, fisrt 9: R, last 1: azimuth angle
 
         Returns:
             point_cls_labels: (N1 + N2 + N3 + ...), long type, 0:background, -1:ignored
@@ -85,7 +88,7 @@ class PointHeadTemplate(nn.Module):
             box_fg_flag = (box_idxs_of_pts >= 0)
             if set_ignore_flag:
                 extend_box_idxs_of_pts = roiaware_pool3d_utils.points_in_boxes_gpu(
-                    points_single.unsqueeze(dim=0), extend_gt_boxes[k:k+1, :, 0:7].contiguous()
+                    points_single.unsqueeze(dim=0), extend_gt_boxes[k:k + 1, :, 0:7].contiguous()
                 ).long().squeeze(dim=0)
                 fg_flag = box_fg_flag
                 ignore_flag = fg_flag ^ (extend_box_idxs_of_pts >= 0)
@@ -104,10 +107,17 @@ class PointHeadTemplate(nn.Module):
 
             if ret_box_labels and gt_box_of_fg_points.shape[0] > 0:
                 point_box_labels_single = point_box_labels.new_zeros((bs_mask.sum(), 8))
-                fg_point_box_labels = self.box_coder.encode_torch(
-                    gt_boxes=gt_box_of_fg_points[:, :-1], points=points_single[fg_flag],
-                    gt_classes=gt_box_of_fg_points[:, -1].long()
-                )
+                if azimuth_rotation_matrix is not None:
+                    fg_point_box_labels = self.box_coder.encode_torch(
+                        gt_boxes=gt_box_of_fg_points[:, :-1], points=points_single[fg_flag],
+                        points_rotation_matrix=azimuth_rotation_matrix[bs_mask][fg_flag],
+                        gt_classes=gt_box_of_fg_points[:, -1].long()
+                    )
+                else:
+                    fg_point_box_labels = self.box_coder.encode_torch(
+                        gt_boxes=gt_box_of_fg_points[:, :-1], points=points_single[fg_flag],
+                        gt_classes=gt_box_of_fg_points[:, -1].long()
+                    )
                 point_box_labels_single[fg_flag] = fg_point_box_labels
                 point_box_labels[bs_mask] = point_box_labels_single
 
@@ -190,7 +200,7 @@ class PointHeadTemplate(nn.Module):
         tb_dict.update({'point_loss_box': point_loss_box.item()})
         return point_loss_box, tb_dict
 
-    def generate_predicted_boxes(self, points, point_cls_preds, point_box_preds):
+    def generate_predicted_boxes(self, points, point_cls_preds, point_box_preds, azimuth_rotation_matrix=None):
         """
         Args:
             points: (N, 3)
@@ -202,7 +212,11 @@ class PointHeadTemplate(nn.Module):
 
         """
         _, pred_classes = point_cls_preds.max(dim=-1)
-        point_box_preds = self.box_coder.decode_torch(point_box_preds, points, pred_classes + 1)
+        if azimuth_rotation_matrix is not None:
+            point_box_preds = self.box_coder.decode_torch(point_box_preds, points, azimuth_rotation_matrix,
+                                                          pred_classes + 1)
+        else:
+            point_box_preds = self.box_coder.decode_torch(point_box_preds, points, pred_classes + 1)
 
         return point_cls_preds, point_box_preds
 

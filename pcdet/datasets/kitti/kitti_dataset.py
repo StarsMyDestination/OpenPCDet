@@ -256,6 +256,9 @@ class KittiDataset(DatasetTemplate):
             info = infos[k]
             sample_idx = info['point_cloud']['lidar_idx']
             points = self.get_lidar(sample_idx)
+            ringID = self.get_kitti_rows(points)
+            points = np.concatenate([points, ringID.reshape(-1, 1)], axis=-1)
+
             annos = info['annos']
             names = annos['name']
             difficulty = annos['difficulty']

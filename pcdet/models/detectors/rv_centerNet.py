@@ -19,7 +19,11 @@ class RVCenterNet(Detector3DTemplate):
             }
             return ret_dict, tb_dict, disp_dict
         else:
-            pred_dicts, recall_dicts = self.post_processing(batch_dict)
+            if self.model_cfg.DENSE_HEAD.NAME in ['RVCenterNetHead']:
+                pred_dicts, recall_dicts = self.dense_head_post_processing(batch_dict)
+            else:
+                pred_dicts, recall_dicts = self.post_processing(batch_dict)
+
             return pred_dicts, recall_dicts
 
     def get_training_loss(self):
@@ -35,7 +39,7 @@ class RVCenterNet(Detector3DTemplate):
         return loss, tb_dict, disp_dict
 
     # reload, no nms. #TODO not consider 2-stage now.
-    def post_processing(self, batch_dict):
+    def dense_head_post_processing(self, batch_dict):
         """
         Args:
             batch_dict:
@@ -60,7 +64,7 @@ class RVCenterNet(Detector3DTemplate):
         pred_dicts = []
         for index in range(batch_size):
             box_preds = batch_dict['batch_box_preds'][index]
-            cls_labels = batch_dict['batch_cls_labels'][index] + 1 # 1-based
+            cls_labels = batch_dict['batch_cls_labels'][index] + 1  # 1-based
             cls_scores = batch_dict['batch_cls_scores'][index]
             src_box_preds = box_preds
 

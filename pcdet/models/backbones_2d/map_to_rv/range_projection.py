@@ -140,8 +140,8 @@ class RPTransformation(object):
             v = ringID.long()
 
         # get pxpy
-        px = (uv_normed[:, 0] - 0.5) * 2  # [-1, 1]
-        py = (v / h - 0.5) * 2  # [-1, 1]
+        px = (uv_normed[:, 0] - 0.5) * 2  # [-1, 1)
+        py = (v / h - 0.5) * 2  # [-1, 1)
         pxpy = torch.stack([px, py], dim=-1)
 
         # gather features
@@ -177,7 +177,7 @@ class RPTransformation(object):
             dst_size = (int(h * self.h_upsample_ratio), w)
             rv_image = F.interpolate(rv_image, dst_size, mode='bilinear')
 
-        return rv_image, pxpy
+        return rv_image, pxpy, points
 
 
 class BasicRangeProjection(nn.Module):
@@ -241,16 +241,25 @@ class BasicRangeProjection(nn.Module):
         batch_size = batch_dict['batch_size']
 
         rv_images = []
+        points_list = []
+        pxpy_list = []
         for bs_cnt in range(batch_size):
             one_point = points[bs_idx == bs_cnt]
-            rv_image, pxpy = self.rp_trans_api.points_to_rvImage(one_point)  # 1CHW
+            rv_image, pxpy, one_point = self.rp_trans_api.points_to_rvImage(one_point)  # 1CHW
+            one_point = F.pad(one_point, (1, 0), mode='constant', value=bs_cnt)
+            pxpy = F.pad(pxpy, (1, 0), mode='constant', value=bs_cnt)
             rv_images.append(rv_image)
+            points_list.append(one_point)
+            pxpy_list.append(pxpy)
         rv_images = torch.cat(rv_images, dim=0)  # NCHW
+        points = torch.cat(points_list, dim=0)  # NxC
+        pxpy = torch.cat(pxpy_list, dim=0)  # Nx3
 
         batch_dict.update({
             'spatial_features': rv_images,
             'rv_img_shape': rv_images.shape[2:4],
             'pxpy': pxpy,
+            'points': points,
         })
 
         if self.training:

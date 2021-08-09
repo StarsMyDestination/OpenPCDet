@@ -38,13 +38,18 @@ DATA_CONFIG:
             - NAME: random_world_scaling
               WORLD_SCALE_RANGE: [0.95, 1.05]
 
+    POINT_FEATURE_ENCODING: {
+        encoding_type: absolute_coordinates_encoding,
+        used_feature_list: ['x', 'y', 'z', 'intensity', 'ringID'],
+        src_feature_list: ['x', 'y', 'z', 'intensity', 'ringID'],
+    }
 
 MODEL:
     NAME: RVCenterNet
 
     MAP_TO_RV:
         NAME: BasicRangeProjection
-        USE_RINGID: False
+        USE_RINGID: True # if True, following V_FOV is not used anymore, but HEIGHT is valid!
         RINGID_IDX: -1 #[..., ringID]
 
         USE_XYZ: True
@@ -59,7 +64,7 @@ MODEL:
 
         TRAIN_CFG:
             FILTER_GT_BOXES: True
-            USE_OBSERVATION_ANGLE: True
+            USE_OBSERVATION_ANGLE: False # compute observation angle per point in pointhead
 
         NORM_CFG:
             NORM_INPUT: True
@@ -80,35 +85,41 @@ MODEL:
 
 
     DENSE_HEAD:
-        NAME: RVCenterNetHead
+        NAME: RVPointHead
+
+        CLS_FC: [256, 256]
+        REG_FC: [256, 256]
         CLASS_AGNOSTIC: False
+        TARGET_CONFIG:
+          GT_EXTRA_WIDTH: [0.2, 0.2, 0.2]
+          BOX_CODER: PointResidualCoderAzimuthInvariant
+          BOX_CODER_CONFIG: {
+            'use_mean_size': True,
+            'mean_size': [
+            [3.9, 1.6, 1.56],
+            [0.8, 0.6, 1.73],
+            [1.76, 0.6, 1.73]
+            ]
+          }
 
-        FEAT_CHANNEL: 64
-
-        DEPTH_ENCODING: log # ['norm', 'log', 'sigmoid']
-        MAX_DEPTH: 80
+        AZIMUTH_INVARIANT_REGRESSION: True
 
         LOSS_CONFIG:
-            LOSS_WEIGHTS: {
-                'heatmap_cls_weight': 1.0,
-                'lwh_reg_weight': 0.1,
-                'offset_reg_weight': 1.0,
-                'depth_reg_weight': 1.0,
-                'dir_reg_weight': 1.0,
-            }
-
-        TEST_CFG:
-            TOP_K: 100
-            LOCAL_MAXIMUM_KERNEL: 3
+          LOSS_REG: WeightedSmoothL1Loss
+          LOSS_WEIGHTS: {
+            'point_cls_weight': 1.0,
+            'point_box_weight': 1.0,
+            'code_weights': [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
+          }
 
 
     POST_PROCESSING:
         RECALL_THRESH_LIST: [0.3, 0.5, 0.7]
-        SCORE_THRESH: 0.1
+        SCORE_THRESH: 0.25
 
         EVAL_METRIC: kitti
 
-        USE_NMS: False
+        USE_NMS: True
         NMS_CONFIG:
             MULTI_CLASSES_NMS: True
             NMS_TYPE: nms_gpu

@@ -85,3 +85,33 @@ python train.py \
 --batch_size 4 --epochs 36 --workers 0 \
 --extra_tag bs4_ep36_normInput_noXYZ_noAngle \
 --set MODEL.MAP_TO_RV.USE_XYZ False MODEL.MAP_TO_RV.USE_ANGLE False
+
+### pointhead
+sleep 300s
+python train.py \
+--cfg_file cfgs/kitti_models/centernet_rv_pointhead.yaml \
+--batch_size 4 --epochs 36 --workers 0 \
+--extra_tag bs4_ep36
+
+
+### pointhead, box_coder-no_mean_size
+sleep 300s
+python train.py \
+--cfg_file cfgs/kitti_models/centernet_rv_pointhead.yaml \
+--batch_size 4 --epochs 36 --workers 0 \
+--extra_tag bs4_ep36_noMeanSize \
+--set MODEL.DENSE_HEAD.TARGET_CONFIG.BOX_CODER_CONFIG.use_mean_size False
+
+
+
+### pointhead use normal reg,
+python train.py \
+--cfg_file cfgs/kitti_models/centernet_rv_pointhead.yaml \
+--batch_size 4 --epochs 36 --workers 0 \
+--extra_tag bs4_ep36_normReg \
+--set MODEL.DENSE_HEAD.AZIMUTH_INVARIANT_REGRESSION False MODEL.DENSE_HEAD.TARGET_CONFIG.BOX_CODER PointResidualCoder
+
+
+
+
+

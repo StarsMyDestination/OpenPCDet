@@ -98,96 +98,104 @@ if __name__ == '__main__':
             # 'develop': PostInstallation,
         },
         ext_modules=[
+            # make_cuda_ext(
+            #     name='sparse_conv_ext',
+            #     module='pcdet.ops.spconv',
+            #     extra_include_path=[
+            #         # PyTorch 1.5 uses ninjia, which requires absolute path
+            #         # of included files, relative path will cause failure.
+            #         os.path.abspath(
+            #             os.path.join(*'pcdet.ops.spconv'.split('.'),
+            #                          'include/'))
+            #     ],
+            #     sources=[
+            #         'src/all.cc',
+            #         'src/reordering.cc',
+            #         'src/reordering_cuda.cu',
+            #         'src/indice.cc',
+            #         'src/indice_cuda.cu',
+            #         'src/maxpool.cc',
+            #         'src/maxpool_cuda.cu',
+            #     ],
+            #     extra_args=['-w', '-std=c++14']),
+            #
+            # make_cuda_ext(
+            #     name='voxel_layer',
+            #     module='pcdet.ops.voxel',
+            #     sources=[
+            #         'src/voxelization.cpp',
+            #         'src/scatter_points_cpu.cpp',
+            #         'src/scatter_points_cuda.cu',
+            #         'src/voxelization_cpu.cpp',
+            #         'src/voxelization_cuda.cu',
+            #     ]),
+            #
             make_cuda_ext(
-                name='sparse_conv_ext',
-                module='pcdet.ops.spconv',
-                extra_include_path=[
-                    # PyTorch 1.5 uses ninjia, which requires absolute path
-                    # of included files, relative path will cause failure.
-                    os.path.abspath(
-                        os.path.join(*'pcdet.ops.spconv'.split('.'),
-                                     'include/'))
-                ],
+                name='rangeview_cuda',
+                module='pcdet.ops.rangeview',
                 sources=[
-                    'src/all.cc',
-                    'src/reordering.cc',
-                    'src/reordering_cuda.cu',
-                    'src/indice.cc',
-                    'src/indice_cuda.cu',
-                    'src/maxpool.cc',
-                    'src/maxpool_cuda.cu',
-                ],
-                extra_args=['-w', '-std=c++14']),
-
-            make_cuda_ext(
-                name='voxel_layer',
-                module='pcdet.ops.voxel',
-                sources=[
-                    'src/voxelization.cpp',
-                    'src/scatter_points_cpu.cpp',
-                    'src/scatter_points_cuda.cu',
-                    'src/voxelization_cpu.cpp',
-                    'src/voxelization_cuda.cu',
+                    'src/point_to_range.cpp',
+                    'src/point_to_range_cuda.cu',
                 ]),
-
-            make_cuda_ext(
-                name='iou3d_nms_cuda',
-                module='pcdet.ops.iou3d_nms',
-                sources=[
-                    'src/iou3d_cpu.cpp',
-                    'src/iou3d_nms_api.cpp',
-                    'src/iou3d_nms.cpp',
-                    'src/iou3d_nms_kernel.cu',
-                ]
-            ),
-            make_cuda_ext(
-                name='roiaware_pool3d_cuda',
-                module='pcdet.ops.roiaware_pool3d',
-                sources=[
-                    'src/roiaware_pool3d.cpp',
-                    'src/roiaware_pool3d_kernel.cu',
-                ]
-            ),
-            make_cuda_ext(
-                name='roipoint_pool3d_cuda',
-                module='pcdet.ops.roipoint_pool3d',
-                sources=[
-                    'src/roipoint_pool3d.cpp',
-                    'src/roipoint_pool3d_kernel.cu',
-                ]
-            ),
-            make_cuda_ext(
-                name='pointnet2_stack_cuda',
-                module='pcdet.ops.pointnet2.pointnet2_stack',
-                sources=[
-                    'src/pointnet2_api.cpp',
-                    'src/ball_query.cpp',
-                    'src/ball_query_gpu.cu',
-                    'src/group_points.cpp',
-                    'src/group_points_gpu.cu',
-                    'src/sampling.cpp',
-                    'src/sampling_gpu.cu',
-                    'src/interpolate.cpp',
-                    'src/interpolate_gpu.cu',
-                    'src/voxel_query.cpp', 
-                    'src/voxel_query_gpu.cu',
-                ],
-            ),
-            make_cuda_ext(
-                name='pointnet2_batch_cuda',
-                module='pcdet.ops.pointnet2.pointnet2_batch',
-                sources=[
-                    'src/pointnet2_api.cpp',
-                    'src/ball_query.cpp',
-                    'src/ball_query_gpu.cu',
-                    'src/group_points.cpp',
-                    'src/group_points_gpu.cu',
-                    'src/interpolate.cpp',
-                    'src/interpolate_gpu.cu',
-                    'src/sampling.cpp',
-                    'src/sampling_gpu.cu',
-
-                ],
-            ),
+            #
+            # make_cuda_ext(
+            #     name='iou3d_nms_cuda',
+            #     module='pcdet.ops.iou3d_nms',
+            #     sources=[
+            #         'src/iou3d_cpu.cpp',
+            #         'src/iou3d_nms_api.cpp',
+            #         'src/iou3d_nms.cpp',
+            #         'src/iou3d_nms_kernel.cu',
+            #     ]
+            # ),
+            # make_cuda_ext(
+            #     name='roiaware_pool3d_cuda',
+            #     module='pcdet.ops.roiaware_pool3d',
+            #     sources=[
+            #         'src/roiaware_pool3d.cpp',
+            #         'src/roiaware_pool3d_kernel.cu',
+            #     ]
+            # ),
+            # make_cuda_ext(
+            #     name='roipoint_pool3d_cuda',
+            #     module='pcdet.ops.roipoint_pool3d',
+            #     sources=[
+            #         'src/roipoint_pool3d.cpp',
+            #         'src/roipoint_pool3d_kernel.cu',
+            #     ]
+            # ),
+            # make_cuda_ext(
+            #     name='pointnet2_stack_cuda',
+            #     module='pcdet.ops.pointnet2.pointnet2_stack',
+            #     sources=[
+            #         'src/pointnet2_api.cpp',
+            #         'src/ball_query.cpp',
+            #         'src/ball_query_gpu.cu',
+            #         'src/group_points.cpp',
+            #         'src/group_points_gpu.cu',
+            #         'src/sampling.cpp',
+            #         'src/sampling_gpu.cu',
+            #         'src/interpolate.cpp',
+            #         'src/interpolate_gpu.cu',
+            #         'src/voxel_query.cpp',
+            #         'src/voxel_query_gpu.cu',
+            #     ],
+            # ),
+            # make_cuda_ext(
+            #     name='pointnet2_batch_cuda',
+            #     module='pcdet.ops.pointnet2.pointnet2_batch',
+            #     sources=[
+            #         'src/pointnet2_api.cpp',
+            #         'src/ball_query.cpp',
+            #         'src/ball_query_gpu.cu',
+            #         'src/group_points.cpp',
+            #         'src/group_points_gpu.cu',
+            #         'src/interpolate.cpp',
+            #         'src/interpolate_gpu.cu',
+            #         'src/sampling.cpp',
+            #         'src/sampling_gpu.cu',
+            #
+            #     ],
+            # ),
         ],
     )

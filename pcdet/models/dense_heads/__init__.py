@@ -5,6 +5,7 @@ from .point_head_box import PointHeadBox
 from .point_head_simple import PointHeadSimple
 from .point_intra_part_head import PointIntraPartOffsetHead
 from .rv_center_head import RVCenterNetHead
+from .rv_point_head import RVPointHead
 
 __all__ = {
     'AnchorHeadTemplate': AnchorHeadTemplate,
@@ -14,4 +15,5 @@ __all__ = {
     'PointHeadBox': PointHeadBox,
     'AnchorHeadMulti': AnchorHeadMulti,
     'RVCenterNetHead': RVCenterNetHead,
+    'RVPointHead': RVPointHead,
 }
