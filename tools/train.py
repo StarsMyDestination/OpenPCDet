@@ -54,6 +54,8 @@ def parse_config():
         # args.cfg_file = 'cfgs/kitti_models/pv_rcnn.yaml' # not tested(OOM)
         args.cfg_file = 'cfgs/kitti_models/centernet_rv.yaml'
         args.cfg_file = 'cfgs/kitti_models/centernet_rv_pointhead.yaml'
+        args.cfg_file = 'cfgs/kitti_models/centernet_rv_pointhead_salsaBack.yaml'
+        args.cfg_file = 'cfgs/kitti_models/centernet_rv_pointhead_RPBackbone.yaml'
 
         ## nuScenes
         # args.cfg_file = 'cfgs/nuscenes_models/cbgs_second_multihead.yaml'

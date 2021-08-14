@@ -93,6 +93,10 @@ python train.py \
 --batch_size 4 --epochs 36 --workers 0 \
 --extra_tag bs4_ep36
 
+python train.py \
+--cfg_file cfgs/kitti_models/centernet_rv_pointhead.yaml \
+--batch_size 4 --epochs 36 --workers 0 \
+--extra_tag bs4_ep36_newP2R
 
 ### pointhead, box_coder-no_mean_size
 sleep 300s
@@ -112,6 +116,51 @@ python train.py \
 --set MODEL.DENSE_HEAD.AZIMUTH_INVARIANT_REGRESSION False MODEL.DENSE_HEAD.TARGET_CONFIG.BOX_CODER PointResidualCoder
 
 
+### pointhead salsanextBackbone and normal reg
+python train.py \
+--cfg_file cfgs/kitti_models/centernet_rv_pointhead_salsaBack.yaml \
+--batch_size 2 --epochs 36 --workers 0 \
+--extra_tag bs4_ep36_normReg_salsaBackTest \
+--set MODEL.DENSE_HEAD.AZIMUTH_INVARIANT_REGRESSION False MODEL.DENSE_HEAD.TARGET_CONFIG.BOX_CODER PointResidualCoder
 
+
+### pointhead salsanextBackbone and normal reg 
+python train.py \
+--cfg_file cfgs/kitti_models/centernet_rv_pointhead_salsaBack.yaml \
+--batch_size 2 --epochs 36 --workers 0 \
+--extra_tag bs4_ep36_normReg_salsaBackNewChannel \
+--set MODEL.DENSE_HEAD.AZIMUTH_INVARIANT_REGRESSION False MODEL.DENSE_HEAD.TARGET_CONFIG.BOX_CODER PointResidualCoder
+
+### pointhead salsanextBackbone and normal reg 这个版本salasanextbackbone 在up阶段用了更小的输出通道数，反而效果可能更好。
+python train.py \
+--cfg_file cfgs/kitti_models/centernet_rv_pointhead_salsaBack.yaml \
+--batch_size 2 --epochs 36 --workers 0 \
+--extra_tag bs4_ep36_normReg_salsaBackNewChannel2 \
+--set MODEL.DENSE_HEAD.AZIMUTH_INVARIANT_REGRESSION False MODEL.DENSE_HEAD.TARGET_CONFIG.BOX_CODER PointResidualCoder
+
+
+===== RPBackbone =========
+
+### pointhead RPBackbone and normal reg 
+python train.py \
+--cfg_file cfgs/kitti_models/centernet_rv_pointhead_RPBackbone.yaml \
+--batch_size 2 --epochs 36 --workers 0 \
+--extra_tag bs4_ep36_normReg_RPBackbone \
+--set MODEL.DENSE_HEAD.AZIMUTH_INVARIANT_REGRESSION False MODEL.DENSE_HEAD.TARGET_CONFIG.BOX_CODER PointResidualCoder
+
+### pointhead RPBackbone and normal reg + iouBranchBCE
+python train.py \
+--cfg_file cfgs/kitti_models/centernet_rv_pointhead_RPBackbone.yaml \
+--batch_size 2 --epochs 36 --workers 0 \
+--extra_tag bs4_ep36_normReg_RPBackbone_iouBCE \
+--set MODEL.DENSE_HEAD.AZIMUTH_INVARIANT_REGRESSION False MODEL.DENSE_HEAD.TARGET_CONFIG.BOX_CODER PointResidualCoder
+
+
+### pointhead RPBackbone and normal reg + iouBranchSmoothL1 + 
+python train.py \
+--cfg_file cfgs/kitti_models/centernet_rv_pointhead_RPBackbone.yaml \
+--batch_size 2 --epochs 36 --workers 0 \
+--extra_tag bs4_ep36_normReg_RPBackbone_iouSL1 \
+--set MODEL.DENSE_HEAD.AZIMUTH_INVARIANT_REGRESSION False MODEL.DENSE_HEAD.TARGET_CONFIG.BOX_CODER PointResidualCoder
 
 

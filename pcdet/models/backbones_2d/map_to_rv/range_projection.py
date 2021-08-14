@@ -108,6 +108,7 @@ class RPTransformation(object):
 
         return SphereProjection.rThetaPhi_to_xyz(rThetaPhi)  # Nx3
 
+    @torch.no_grad()
     def points_to_rvImage(self, points):
         xyz = points[:, 0:3]
         uv_normed, rThetaPhi = self.xyz_to_uvNormed(xyz, return_more=True)
@@ -180,7 +181,7 @@ class RPTransformation(object):
             dst_size = (int(h * self.h_upsample_ratio), w)
             rv_image = F.interpolate(rv_image, dst_size, mode='bilinear')
 
-        return rv_image, pxpy, points
+        return rv_image, pxpy, torch.cat([points, rThetaPhi], dim=-1)
 
 
 class BasicRangeProjection(nn.Module):
@@ -195,6 +196,7 @@ class BasicRangeProjection(nn.Module):
         super().__init__()
         self.cfg = cfg
         self.num_rv_features = input_channels
+        self.num_point_features = input_channels + 3  # add rThetaPhi to point features
 
         self.use_ringID = cfg.USE_RINGID
         self.use_xyz = cfg.get('USE_XYZ', True)

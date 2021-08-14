@@ -248,6 +248,20 @@ __global__ void boxes_overlap_kernel(const int num_a, const float *boxes_a, cons
     ans_overlap[a_idx * num_b + b_idx] = s_overlap;
 }
 
+__global__ void pair_wise_boxes_overlap_kernel(const int num_boxes, const float *boxes_a, const float *boxes_b, float *ans_overlap){
+    // params boxes_a: (N, 7) [x, y, z, dx, dy, dz, heading]
+    // params boxes_b: (N, 7) [x, y, z, dx, dy, dz, heading]
+    const int box_idx = blockIdx.x * THREADS_PER_BLOCK + threadIdx.x;
+
+    if (box_idx >= num_boxes){
+        return;
+    }
+    const float * cur_box_a = boxes_a + box_idx * 7;
+    const float * cur_box_b = boxes_b + box_idx * 7;
+    float s_overlap = box_overlap(cur_box_a, cur_box_b);
+    ans_overlap[box_idx] = s_overlap;
+}
+
 __global__ void boxes_iou_bev_kernel(const int num_a, const float *boxes_a, const int num_b, const float *boxes_b, float *ans_iou){
     // params boxes_a: (N, 7) [x, y, z, dx, dy, dz, heading]
     // params boxes_b: (M, 7) [x, y, z, dx, dy, dz, heading]
@@ -385,6 +399,18 @@ void boxesoverlapLauncher(const int num_a, const float *boxes_a, const int num_b
     cudaDeviceSynchronize();  // for using printf in kernel function
 #endif
 }
+
+void pairwiseBoxesoverlapLauncher(const int num_boxes, const float *boxes_a, const float *boxes_b, float *ans_overlap){
+
+    dim3 blocks(DIVUP(num_boxes, THREADS_PER_BLOCK));  // blockIdx.x(col), blockIdx.y(row)
+    dim3 threads(THREADS_PER_BLOCK);
+
+    pair_wise_boxes_overlap_kernel<<<blocks, threads>>>(num_boxes, boxes_a, boxes_b, ans_overlap);
+#ifdef DEBUG
+    cudaDeviceSynchronize();  // for using printf in kernel function
+#endif
+}
+
 
 void boxesioubevLauncher(const int num_a, const float *boxes_a, const int num_b, const float *boxes_b, float *ans_iou){
 

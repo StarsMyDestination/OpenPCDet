@@ -20,7 +20,7 @@ class Detector3DTemplate(nn.Module):
         self.register_buffer('global_step', torch.LongTensor(1).zero_())
 
         self.module_topology = [
-            'voxelization', 'vfe', 'map_to_rv', 'backbone_2d_rangeview',
+            'voxelization', 'vfe', 'map_to_rv', 'backbone_2d_rangeview', 'backbone_2d_fusion',
             'backbone_3d', 'map_to_bev_module', 'pfe',
             'backbone_2d', 'neck', 'dense_head', 'point_head', 'roi_head'
         ]
@@ -118,6 +118,7 @@ class Detector3DTemplate(nn.Module):
         )
         model_info_dict['module_list'].append(map_to_rv_module)
         model_info_dict['num_rv_features'] = map_to_rv_module.num_rv_features
+        model_info_dict['num_point_features'] = map_to_rv_module.num_point_features
         model_info_dict['rp_trans_api'] = map_to_rv_module.rp_trans_api
         model_info_dict['use_observation_angle'] = map_to_rv_module.use_observation_angle
         return map_to_rv_module, model_info_dict
@@ -141,6 +142,20 @@ class Detector3DTemplate(nn.Module):
         backbone_2d_module = backbones_2d.__all__[self.model_cfg.BACKBONE_2D_RANGEVIEW.NAME](
             model_cfg=self.model_cfg.BACKBONE_2D_RANGEVIEW,
             input_channels=model_info_dict['num_rv_features']
+        )
+        model_info_dict['module_list'].append(backbone_2d_module)
+        model_info_dict['num_2d_features'] = backbone_2d_module.num_2d_features
+        return backbone_2d_module, model_info_dict
+
+    def build_backbone_2d_fusion(self, model_info_dict):
+        if self.model_cfg.get('BACKBONE_2D_FUSION', None) is None:
+            return None, model_info_dict
+
+        backbone_2d_module = backbones_2d.__all__[self.model_cfg.BACKBONE_2D_FUSION.NAME](
+            model_cfg=self.model_cfg.BACKBONE_2D_FUSION,
+            input_range_channels=model_info_dict['num_rv_features'],
+            input_point_channels=model_info_dict['num_point_features'],
+            # maybe add voxel/bev features
         )
         model_info_dict['module_list'].append(backbone_2d_module)
         model_info_dict['num_2d_features'] = backbone_2d_module.num_2d_features

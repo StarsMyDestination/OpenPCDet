@@ -3,6 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from ...ops.roiaware_pool3d import roiaware_pool3d_utils
+from ...ops.iou3d_nms.iou3d_nms_utils import pair_wise_boxes_iou3d_gpu
 from ...utils import common_utils, loss_utils
 
 
@@ -49,7 +50,7 @@ class PointHeadTemplate(nn.Module):
     def assign_stack_targets(self, points, gt_boxes, extend_gt_boxes=None,
                              ret_box_labels=False, ret_part_labels=False,
                              set_ignore_flag=True, use_ball_constraint=False, central_radius=2.0,
-                             azimuth_rotation_matrix=None):
+                             azimuth_rotation_matrix=None, ret_iou_label=False, point_pred_boxes=None):
         """
         Args:
             points: (N1 + N2 + N3 + ..., 4) [bs_idx, x, y, z]
@@ -78,6 +79,7 @@ class PointHeadTemplate(nn.Module):
         point_cls_labels = points.new_zeros(points.shape[0]).long()
         point_box_labels = gt_boxes.new_zeros((points.shape[0], 8)) if ret_box_labels else None
         point_part_labels = gt_boxes.new_zeros((points.shape[0], 3)) if ret_part_labels else None
+        point_iou_labels = gt_boxes.new_zeros((points.shape[0])) if ret_iou_label else None
         for k in range(batch_size):
             bs_mask = (bs_idx == k)
             points_single = points[bs_mask][:, 1:4]
@@ -131,10 +133,20 @@ class PointHeadTemplate(nn.Module):
                 point_part_labels_single[fg_flag] = (transformed_points / gt_box_of_fg_points[:, 3:6]) + offset
                 point_part_labels[bs_mask] = point_part_labels_single
 
+            if ret_iou_label and gt_box_of_fg_points.shape[0] > 0:
+                assert point_pred_boxes is not None
+                pred_boxes_single = point_pred_boxes[bs_mask]
+
+                point_iou_labels_single = point_box_labels.new_zeros((bs_mask.sum()))
+                fg_point_iou_labels = pair_wise_boxes_iou3d_gpu(gt_box_of_fg_points[:, :-1], pred_boxes_single[fg_flag])
+                point_iou_labels_single[fg_flag] = fg_point_iou_labels
+                point_iou_labels[bs_mask] = point_iou_labels_single
+
         targets_dict = {
             'point_cls_labels': point_cls_labels,
             'point_box_labels': point_box_labels,
-            'point_part_labels': point_part_labels
+            'point_part_labels': point_part_labels,
+            'point_iou_labels': point_iou_labels,
         }
         return targets_dict
 
